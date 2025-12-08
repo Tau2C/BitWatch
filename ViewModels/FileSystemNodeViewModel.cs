@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using ReactiveUI;
 
@@ -34,7 +36,7 @@ namespace BitWatch.ViewModels
             set => this.RaiseAndSetIfChanged(ref _isSelected, value);
         }
 
-        public List<FileSystemNodeViewModel> Children { get; } = new List<FileSystemNodeViewModel>();
+        public ObservableCollection<FileSystemNodeViewModel> Children { get; } = new ObservableCollection<FileSystemNodeViewModel>();
 
         public FileSystemNodeViewModel(string path)
         {
@@ -53,6 +55,17 @@ namespace BitWatch.ViewModels
         {
             // Add a dummy child to make the expander visible
             Children.Add(new FileSystemNodeViewModel("Loading..."));
+
+            Action<bool> onExpanded = isExpanded =>
+            {
+                if (isExpanded)
+                {
+                    LoadChildren();
+                }
+            };
+
+            this.WhenAnyValue(x => x.IsExpanded)
+                .Subscribe(onExpanded);
         }
 
         public void LoadChildren()
@@ -78,6 +91,27 @@ namespace BitWatch.ViewModels
 
     public class FileNodeViewModel : FileSystemNodeViewModel
     {
+        private string? _hash;
+        public string? Hash
+        {
+            get => _hash;
+            set => this.RaiseAndSetIfChanged(ref _hash, value);
+        }
+
+        private string? _hashAlgorithm;
+        public string? HashAlgorithm
+        {
+            get => _hashAlgorithm;
+            set => this.RaiseAndSetIfChanged(ref _hashAlgorithm, value);
+        }
+
+        private string? _notes;
+        public string? Notes
+        {
+            get => _notes;
+            set => this.RaiseAndSetIfChanged(ref _notes, value);
+        }
+
         public FileNodeViewModel(string path) : base(path) { }
     }
 }

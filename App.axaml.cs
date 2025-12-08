@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using ReactiveUI;
+using ReactiveUI.Avalonia;
 
 namespace BitWatch;
 
@@ -17,6 +19,8 @@ public partial class App : Application
         {
             desktop.MainWindow = new MainWindow();
         }
+
+        RxApp.MainThreadScheduler = AvaloniaScheduler.Instance;
 
         base.OnFrameworkInitializationCompleted();
     }

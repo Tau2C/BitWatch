@@ -37,14 +37,4 @@ public partial class MainWindow : Window
         var settingsWindow = new SettingsWindow();
         await settingsWindow.ShowDialog(this);
     }
-
-    private void OnRunNowMenuItemClick(object? sender, RoutedEventArgs e)
-    {
-        (DataContext as MainWindowViewModel)?.AddLogMessage("Action: Run Now initiated.");
-    }
-
-    private void OnVerifyAllMenuItemClick(object? sender, RoutedEventArgs e)
-    {
-        (DataContext as MainWindowViewModel)?.AddLogMessage("Action: Verify All initiated.");
-    }
 }

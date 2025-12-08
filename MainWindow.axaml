@@ -21,23 +21,33 @@
         <MenuItem Header="_Exit"/>
       </MenuItem>
       <MenuItem Header="_Actions">
-        <MenuItem Header="_Run Now" Click="OnRunNowMenuItemClick"/>
-        <MenuItem Header="_Verify All" Click="OnVerifyAllMenuItemClick"/>
+        <MenuItem Header="_Calculate Hash" Command="{Binding CalculateHashCommand}" />
+        <MenuItem Header="_Run Now" Command="{Binding RunNowCommand}"/>
+        <MenuItem Header="_Verify All" Command="{Binding VerifyAllCommand}"/>
       </MenuItem>
     </Menu>
 
     <Border DockPanel.Dock="Bottom" BorderBrush="Gray" BorderThickness="0,1,0,0">
-        <TextBlock Text="{Binding StatusText}" Margin="5,2"/>
+        <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Text="{Binding StatusText}" Margin="5,2"/>
+            <ProgressBar Grid.Column="1" Width="200" Margin="5,0"
+                         Value="{Binding Progress}" 
+                         IsVisible="{Binding IsProgressVisible}"/>
+        </Grid>
     </Border>
 
     <Grid ColumnDefinitions="3*,7*">
-      <TreeView Grid.Column="0" Margin="5" Name="DirectoryTree" ItemsSource="{Binding Directories}">
+      <TreeView Grid.Column="0" Margin="5" Name="DirectoryTree" ItemsSource="{Binding Directories}"
+                SelectedItem="{Binding SelectedNode}">
         <TreeView.DataTemplates>
           <TreeDataTemplate DataType="vm:DirectoryNodeViewModel" ItemsSource="{Binding Children}">
             <TextBlock Text="{Binding Name}" />
           </TreeDataTemplate>
           <TreeDataTemplate DataType="vm:FileNodeViewModel">
-            <TextBlock Text="{Binding Name}" />
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="{Binding Name}" />
+              <TextBlock Text="{Binding Hash, StringFormat=' - {0}'}" Margin="5,0,0,0" />
+            </StackPanel>
           </TreeDataTemplate>
         </TreeView.DataTemplates>
       </TreeView>
