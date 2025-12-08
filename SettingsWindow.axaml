@@ -1,0 +1,32 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:BitWatch.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
+        x:Class="BitWatch.SettingsWindow"
+        Title="Settings"
+        x:DataType="vm:SettingsWindowViewModel">
+  <Design.DataContext>
+    <vm:SettingsWindowViewModel/>
+  </Design.DataContext>
+  <StackPanel Margin="10">
+    <TextBlock Text="Hash Algorithm:" Margin="0,0,0,5"/>
+    <ComboBox ItemsSource="{Binding HashAlgorithms}"
+              SelectedItem="{Binding SelectedHashAlgorithm}"
+              Margin="0,0,0,10"/>
+
+    <TextBlock Text="Scan Interval (minutes):" Margin="0,0,0,5"/>
+    <TextBox Text="{Binding ScanIntervalMinutes}" Margin="0,0,0,10"/>
+
+    <TextBlock Text="Operation Mode:" Margin="0,0,0,5"/>
+    <ComboBox ItemsSource="{Binding OperationModes}"
+              SelectedItem="{Binding SelectedOperationMode}"
+              Margin="0,0,0,10"/>
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="Save" Command="{Binding SaveCommand}" Margin="0,0,10,0"/>
+      <Button Content="Cancel" Command="{Binding CancelCommand}"/>
+    </StackPanel>
+  </StackPanel>
+</Window>

@@ -1,11 +1,50 @@
 using Avalonia.Controls;
+using Avalonia.Interactivity;
+using BitWatch.ViewModels;
+using System.Threading.Tasks;
 
-namespace BitWatch1;
+namespace BitWatch;
 
 public partial class MainWindow : Window
 {
     public MainWindow()
     {
         InitializeComponent();
+        DataContext = new MainWindowViewModel();
+
+        // Find the TreeView and attach the Expanded event handler
+        var treeView = this.FindControl<TreeView>("DirectoryTree");
+        if (treeView != null)
+        {
+            treeView.AddHandler(TreeViewItem.ExpandedEvent, OnTreeViewItemExpanded, RoutingStrategies.Bubble);
+        }
+    }
+
+    private void OnTreeViewItemExpanded(object? sender, RoutedEventArgs e)
+    {
+        if (e.Source is TreeViewItem treeViewItem && treeViewItem.DataContext is DirectoryNodeViewModel directoryNode)
+        {
+            // Load children only if they haven't been loaded yet (i.e., still contains the "Loading..." placeholder)
+            if (directoryNode.Children.Count == 1 && directoryNode.Children[0].Name == "Loading...")
+            {
+                directoryNode.LoadChildren();
+            }
+        }
+    }
+
+    private async void OnSettingsMenuItemClick(object? sender, RoutedEventArgs e)
+    {
+        var settingsWindow = new SettingsWindow();
+        await settingsWindow.ShowDialog(this);
+    }
+
+    private void OnRunNowMenuItemClick(object? sender, RoutedEventArgs e)
+    {
+        (DataContext as MainWindowViewModel)?.AddLogMessage("Action: Run Now initiated.");
+    }
+
+    private void OnVerifyAllMenuItemClick(object? sender, RoutedEventArgs e)
+    {
+        (DataContext as MainWindowViewModel)?.AddLogMessage("Action: Verify All initiated.");
     }
 }

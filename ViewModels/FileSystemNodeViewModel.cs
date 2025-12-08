@@ -1,0 +1,83 @@
+using System.Collections.Generic;
+using System.IO;
+using ReactiveUI;
+
+namespace BitWatch.ViewModels
+{
+    public class FileSystemNodeViewModel : ReactiveObject
+    {
+        private string _name = "";
+        public string Name
+        {
+            get => _name;
+            set => this.RaiseAndSetIfChanged(ref _name, value);
+        }
+
+        private string _path = "";
+        public string Path
+        {
+            get => _path;
+            set => this.RaiseAndSetIfChanged(ref _path, value);
+        }
+
+        private bool _isExpanded;
+        public bool IsExpanded
+        {
+            get => _isExpanded;
+            set => this.RaiseAndSetIfChanged(ref _isExpanded, value);
+        }
+
+        private bool _isSelected;
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set => this.RaiseAndSetIfChanged(ref _isSelected, value);
+        }
+
+        public List<FileSystemNodeViewModel> Children { get; } = new List<FileSystemNodeViewModel>();
+
+        public FileSystemNodeViewModel(string path)
+        {
+            Path = path;
+            Name = System.IO.Path.GetFileName(path);
+            if (string.IsNullOrEmpty(Name))
+            {
+                Name = path; // For root drives like C:\ or /
+            }
+        }
+    }
+
+    public class DirectoryNodeViewModel : FileSystemNodeViewModel
+    {
+        public DirectoryNodeViewModel(string path) : base(path)
+        {
+            // Add a dummy child to make the expander visible
+            Children.Add(new FileSystemNodeViewModel("Loading..."));
+        }
+
+        public void LoadChildren()
+        {
+            Children.Clear();
+            try
+            {
+                foreach (var dir in Directory.EnumerateDirectories(Path))
+                {
+                    Children.Add(new DirectoryNodeViewModel(dir));
+                }
+                foreach (var file in Directory.EnumerateFiles(Path))
+                {
+                    Children.Add(new FileNodeViewModel(file));
+                }
+            }
+            catch (System.UnauthorizedAccessException)
+            {
+                // Handle permission issues
+            }
+        }
+    }
+
+    public class FileNodeViewModel : FileSystemNodeViewModel
+    {
+        public FileNodeViewModel(string path) : base(path) { }
+    }
+}

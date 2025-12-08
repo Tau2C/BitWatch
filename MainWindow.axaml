@@ -2,8 +2,53 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-        x:Class="BitWatch1.MainWindow"
-        Title="BitWatch1">
-    Welcome to Avalonia!
+        xmlns:vm="using:BitWatch.ViewModels"
+        xmlns:behaviors="using:BitWatch.Behaviors"
+        mc:Ignorable="d" d:DesignWidth="1024" d:DesignHeight="768"
+        x:Class="BitWatch.MainWindow"
+        Title="BitWatch"
+        x:DataType="vm:MainWindowViewModel">
+
+  <Design.DataContext>
+    <vm:MainWindowViewModel/>
+  </Design.DataContext>
+
+  <DockPanel>
+    <Menu DockPanel.Dock="Top">
+      <MenuItem Header="_File">
+        <MenuItem Header="_Settings" Click="OnSettingsMenuItemClick"/>
+        <Separator/>
+        <MenuItem Header="_Exit"/>
+      </MenuItem>
+      <MenuItem Header="_Actions">
+        <MenuItem Header="_Run Now" Click="OnRunNowMenuItemClick"/>
+        <MenuItem Header="_Verify All" Click="OnVerifyAllMenuItemClick"/>
+      </MenuItem>
+    </Menu>
+
+    <Border DockPanel.Dock="Bottom" BorderBrush="Gray" BorderThickness="0,1,0,0">
+        <TextBlock Text="{Binding StatusText}" Margin="5,2"/>
+    </Border>
+
+    <Grid ColumnDefinitions="3*,7*">
+      <TreeView Grid.Column="0" Margin="5" Name="DirectoryTree" ItemsSource="{Binding Directories}">
+        <TreeView.DataTemplates>
+          <TreeDataTemplate DataType="vm:DirectoryNodeViewModel" ItemsSource="{Binding Children}">
+            <TextBlock Text="{Binding Name}" />
+          </TreeDataTemplate>
+          <TreeDataTemplate DataType="vm:FileNodeViewModel">
+            <TextBlock Text="{Binding Name}" />
+          </TreeDataTemplate>
+        </TreeView.DataTemplates>
+      </TreeView>
+      
+      <GridSplitter Grid.Column="0" Width="2" HorizontalAlignment="Right" VerticalAlignment="Stretch" Background="Gray"/>
+
+      <ListBox Grid.Column="1" Margin="5" Name="LogPanel" ItemsSource="{Binding LogMessages}"
+               behaviors:ListBoxBehaviors.AutoScroll="True">
+        <!-- Log messages will be displayed here -->
+      </ListBox>
+    </Grid>
+  </DockPanel>
+
 </Window>

@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
-namespace BitWatch1;
+namespace BitWatch;
 
 public partial class App : Application
 {

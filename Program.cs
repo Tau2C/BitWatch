@@ -1,7 +1,7 @@
 ﻿using Avalonia;
 using System;
 
-namespace BitWatch1;
+namespace BitWatch;
 
 class Program
 {
