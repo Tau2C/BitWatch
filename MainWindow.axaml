@@ -31,7 +31,7 @@
         <Grid ColumnDefinitions="*,Auto">
             <TextBlock Grid.Column="0" Text="{Binding StatusText}" Margin="5,2"/>
             <ProgressBar Grid.Column="1" Width="200" Margin="5,0"
-                         Value="{Binding Progress}" 
+                         IsIndeterminate="True" 
                          IsVisible="{Binding IsProgressVisible}"/>
         </Grid>
     </Border>

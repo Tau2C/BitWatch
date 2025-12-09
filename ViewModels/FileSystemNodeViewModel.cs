@@ -36,6 +36,27 @@ namespace BitWatch.ViewModels
             set => this.RaiseAndSetIfChanged(ref _isSelected, value);
         }
 
+        private string? _hash;
+        public string? Hash
+        {
+            get => _hash;
+            set => this.RaiseAndSetIfChanged(ref _hash, value);
+        }
+
+        private string? _hashAlgorithm;
+        public string? HashAlgorithm
+        {
+            get => _hashAlgorithm;
+            set => this.RaiseAndSetIfChanged(ref _hashAlgorithm, value);
+        }
+
+        private string? _notes;
+        public string? Notes
+        {
+            get => _notes;
+            set => this.RaiseAndSetIfChanged(ref _notes, value);
+        }
+
         public ObservableCollection<FileSystemNodeViewModel> Children { get; } = new ObservableCollection<FileSystemNodeViewModel>();
 
         public FileSystemNodeViewModel(string path)
@@ -71,47 +92,32 @@ namespace BitWatch.ViewModels
         public void LoadChildren()
         {
             Children.Clear();
-            try
+            foreach (var dir in Directory.EnumerateDirectories(Path))
             {
-                foreach (var dir in Directory.EnumerateDirectories(Path))
+                try
                 {
                     Children.Add(new DirectoryNodeViewModel(dir));
                 }
-                foreach (var file in Directory.EnumerateFiles(Path))
+                catch (System.UnauthorizedAccessException)
+                {
+                    // Handle permission issues
+                }
+            }
+            foreach (var file in Directory.EnumerateFiles(Path))
+            {
+                try
                 {
                     Children.Add(new FileNodeViewModel(file));
                 }
-            }
-            catch (System.UnauthorizedAccessException)
-            {
-                // Handle permission issues
+                catch (System.UnauthorizedAccessException)
+                {
+                    // Handle permission issues
+                }
             }
         }
     }
-
     public class FileNodeViewModel : FileSystemNodeViewModel
     {
-        private string? _hash;
-        public string? Hash
-        {
-            get => _hash;
-            set => this.RaiseAndSetIfChanged(ref _hash, value);
-        }
-
-        private string? _hashAlgorithm;
-        public string? HashAlgorithm
-        {
-            get => _hashAlgorithm;
-            set => this.RaiseAndSetIfChanged(ref _hashAlgorithm, value);
-        }
-
-        private string? _notes;
-        public string? Notes
-        {
-            get => _notes;
-            set => this.RaiseAndSetIfChanged(ref _notes, value);
-        }
-
         public FileNodeViewModel(string path) : base(path) { }
     }
 }

@@ -1,10 +1,15 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Threading;
+using BitWatch.Models;
+using BitWatch.Services;
 using ReactiveUI;
 
 namespace BitWatch.ViewModels
@@ -33,6 +38,8 @@ namespace BitWatch.ViewModels
         }
 
         public ObservableCollection<string> LogMessages { get; } = new ObservableCollection<string>();
+
+        private readonly DatabaseService _databaseService;
 
         public void AddLogMessage(string message)
         {
@@ -64,66 +71,38 @@ namespace BitWatch.ViewModels
         public MainWindowViewModel()
         {
             Directories = new ObservableCollection<DirectoryNodeViewModel>();
+            _databaseService = new DatabaseService("Host=localhost;Port=5432;Username=postgres;Password=password;Database=bitwatch");
 
             CalculateHashCommand = new RelayCommand(async (parameter) =>
             {
-                if (SelectedNode is FileNodeViewModel fileNode)
+                if (SelectedNode is FileSystemNodeViewModel node)
                 {
-                    await CalculateHashAsync(fileNode);
+                    var rootPath = Directories.FirstOrDefault(d => node.Path.StartsWith(d.Path));
+                    if (rootPath != null)
+                    {
+                        var pathId = _databaseService.GetPathId(rootPath.Path);
+                        await ProcessNodeAsync(node, pathId, rootPath.Path, false);
+                    }
                 }
-            }, (parameter) => SelectedNode is FileNodeViewModel);
+            }, (parameter) => SelectedNode != null);
 
-            RunNowCommand = new RelayCommand(async (parameter) => await ProcessAllFilesAsync());
-            VerifyAllCommand = new RelayCommand(async (parameter) => await ProcessAllFilesAsync());
+            RunNowCommand = new RelayCommand(async (parameter) => await ProcessAllRootsAsync(false));
+            VerifyAllCommand = new RelayCommand(async (parameter) => await ProcessAllRootsAsync(true));
 
             LoadRootDirectories();
         }
 
-        private async Task CalculateHashAsync(FileNodeViewModel fileNode)
-        {
-            try
-            {
-                var hashString = await Task.Run(() =>
-                {
-                    using var sha256 = SHA256.Create();
-                    using var stream = File.OpenRead(fileNode.Path);
-                    var hash = sha256.ComputeHash(stream);
-                    return System.BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
-                });
-
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    fileNode.Hash = hashString;
-                    fileNode.HashAlgorithm = "SHA256";
-                    AddLogMessage($"Hashed {fileNode.Path}: {hashString}");
-                });
-            }
-            catch (System.Exception e)
-            {
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    AddLogMessage($"Error hashing {fileNode.Path}: {e.Message}");
-                });
-            }
-        }
-
-        private async Task ProcessAllFilesAsync()
+        private async Task ProcessAllRootsAsync(bool verify)
         {
             IsProgressVisible = true;
-            Progress = 0;
+            Progress = 0; // Or set IsIndeterminate = true on the ProgressBar
 
             try
             {
-                var allFiles = new List<FileNodeViewModel>();
                 foreach (var dir in Directories)
                 {
-                    GetAllFiles(dir, allFiles);
-                }
-
-                for (int i = 0; i < allFiles.Count; i++)
-                {
-                    await CalculateHashAsync(allFiles[i]);
-                    Progress = (double)(i + 1) / allFiles.Count * 100;
+                    var pathId = _databaseService.GetPathId(dir.Path);
+                    await ProcessNodeAsync(dir, pathId, dir.Path, verify);
                 }
             }
             finally
@@ -132,33 +111,119 @@ namespace BitWatch.ViewModels
             }
         }
 
-        private void GetAllFiles(DirectoryNodeViewModel directory, List<FileNodeViewModel> allFiles)
+        private async Task<string?> ProcessNodeAsync(FileSystemNodeViewModel node, int pathId, string rootPath, bool verify)
         {
-            // If children haven't been loaded yet, load them.
-            if (directory.Children.Count == 1 && directory.Children[0].Name == "Loading...")
+            var relativePath = node.Path.Substring(rootPath.Length).TrimStart(Path.DirectorySeparatorChar);
+            
+            if (node is DirectoryNodeViewModel dirNode)
             {
-                directory.LoadChildren();
-            }
+                // If children haven't been loaded yet, load them.
+                if (dirNode.Children.Count == 1 && dirNode.Children[0].Name == "Loading...")
+                {
+                    dirNode.LoadChildren();
+                }
 
-            foreach (var child in directory.Children)
-            {
-                if (child is FileNodeViewModel file)
+                var childHashes = new List<string>();
+                foreach (var child in dirNode.Children)
                 {
-                    allFiles.Add(file);
+                    var childHash = await ProcessNodeAsync(child, pathId, rootPath, verify);
+                    if (childHash != null)
+                    {
+                        childHashes.Add(childHash);
+                    }
                 }
-                else if (child is DirectoryNodeViewModel dir)
+
+                childHashes.Sort();
+                var concatenatedHashes = string.Join("", childHashes);
+                var dirHash = CalculateStringHash(concatenatedHashes);
+                
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    GetAllFiles(dir, allFiles);
+                    dirNode.Hash = dirHash;
+                    dirNode.HashAlgorithm = "SHA256";
+                });
+
+                _databaseService.UpsertNode(new Node
+                {
+                    PathId = pathId,
+                    RelativePath = relativePath,
+                    Type = "directory",
+                    Hash = dirHash,
+                    HashAlgorithm = "SHA256",
+                    LastChecked = DateTime.UtcNow
+                });
+                
+                return dirHash;
+            }
+            else if (node is FileNodeViewModel fileNode)
+            {
+                try
+                {
+                    var hashString = await Task.Run(() =>
+                    {
+                        using var sha256 = SHA256.Create();
+                        using var stream = File.OpenRead(fileNode.Path);
+                        var hash = sha256.ComputeHash(stream);
+                        return System.BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+                    });
+
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        fileNode.Hash = hashString;
+                        fileNode.HashAlgorithm = "SHA256";
+                        if(verify)
+                        {
+                            var dbNode = _databaseService.GetNodeByRelativePath(pathId, relativePath);
+                            if (dbNode?.Hash != hashString)
+                            {
+                                AddLogMessage($"Verification failed for {fileNode.Path}");
+                            }
+                        }
+                    });
+
+                    _databaseService.UpsertNode(new Node
+                    {
+                        PathId = pathId,
+                        RelativePath = relativePath,
+                        Type = "file",
+                        Hash = hashString,
+                        HashAlgorithm = "SHA256",
+                        LastChecked = DateTime.UtcNow
+                    });
+
+                    return hashString;
+                }
+                catch (Exception e)
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() => AddLogMessage($"Error hashing {fileNode.Path}: {e.Message}"));
+                    return null;
                 }
             }
+            return null;
+        }
+
+        private string CalculateStringHash(string input)
+        {
+            using var sha256 = SHA256.Create();
+            var bytes = Encoding.UTF8.GetBytes(input);
+            var hash = sha256.ComputeHash(bytes);
+            return System.BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
         }
 
         private void LoadRootDirectories()
         {
-            // For simplicity, let's add some dummy root directories
-            // In a real app, you would enumerate actual drives/root paths
-            Directories.Add(new DirectoryNodeViewModel("/home/tau2c/Projects/bitwatch/"));
-            // Directories.Add(new DirectoryNodeViewModel("C:\ ")); // For Windows
+            var paths = _databaseService.GetPathsToScan().ToList();
+            if (!paths.Any())
+            {
+                var defaultPath = "/home/tau2c/Projects/bitwatch/";
+                _databaseService.AddPathToScan(defaultPath);
+                paths.Add(defaultPath);
+            }
+
+            foreach (var path in paths)
+            {
+                Directories.Add(new DirectoryNodeViewModel(path));
+            }
         }
     }
 }
