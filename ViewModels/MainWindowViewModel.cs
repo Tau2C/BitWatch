@@ -96,6 +96,7 @@ namespace BitWatch.ViewModels
         {
             IsProgressVisible = true;
             Progress = 0; // Or set IsIndeterminate = true on the ProgressBar
+            FileLogger.Instance.Info("Starting processing all roots...");
 
             try
             {
@@ -108,6 +109,7 @@ namespace BitWatch.ViewModels
             finally
             {
                 IsProgressVisible = false;
+                FileLogger.Instance.Info("Processing all roots finished.");
             }
         }
 
@@ -153,6 +155,7 @@ namespace BitWatch.ViewModels
                     LastChecked = DateTime.UtcNow
                 });
                 
+                FileLogger.Instance.Info($"Hashed directory {dirNode.Path}");
                 return dirHash;
             }
             else if (node is FileNodeViewModel fileNode)
@@ -177,6 +180,7 @@ namespace BitWatch.ViewModels
                             if (dbNode?.Hash != hashString)
                             {
                                 AddLogMessage($"Verification failed for {fileNode.Path}");
+                                FileLogger.Instance.Warning($"Verification failed for {fileNode.Path}. Stored hash: {dbNode?.Hash ?? "N/A"}, Calculated hash: {hashString}");
                             }
                         }
                     });
@@ -190,12 +194,14 @@ namespace BitWatch.ViewModels
                         HashAlgorithm = "SHA256",
                         LastChecked = DateTime.UtcNow
                     });
-
+                    
+                    FileLogger.Instance.Info($"Hashed file {fileNode.Path}");
                     return hashString;
                 }
                 catch (Exception e)
                 {
-                    await Dispatcher.UIThread.InvokeAsync(() => AddLogMessage($"Error hashing {fileNode.Path}: {e.Message}"));
+                    AddLogMessage($"Error hashing {fileNode.Path}: {e.Message}");
+                    FileLogger.Instance.Error($"Error hashing {fileNode.Path}", e);
                     return null;
                 }
             }

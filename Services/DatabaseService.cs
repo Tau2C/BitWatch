@@ -5,6 +5,7 @@ using System.Linq;
 using BitWatch.Models;
 using Dapper;
 using Npgsql;
+using BitWatch.Services;
 
 namespace BitWatch.Services
 {
@@ -25,6 +26,7 @@ namespace BitWatch.Services
 
         public void SetupDatabase()
         {
+            FileLogger.Instance.Info("Setting up database...");
             using var connection = GetConnection();
             var script = File.ReadAllText("db_setup.sql");
             connection.Execute(script);
