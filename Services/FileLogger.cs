@@ -32,6 +32,11 @@ namespace BitWatch.Services
             Log("ERROR", message);
         }
 
+        public void Debug(string message)
+        {
+            Log("DEBUG", message);
+        }
+
         private void Log(string level, string message)
         {
             lock (_lock)

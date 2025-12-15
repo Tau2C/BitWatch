@@ -173,8 +173,15 @@ namespace BitWatch.ViewModels
 
         private async Task<string?> ProcessNodeAsync(FileSystemNodeViewModel node, int pathId, string rootPath, bool verify, List<ExcludedNode> excludedNodes)
         {
+            FileLogger.Instance.Debug($"Processing node: {node.Path}, rootPath: {rootPath}, pathId: {pathId}");
             var relativePath = node.Path.Substring(rootPath.Length).TrimStart(Path.DirectorySeparatorChar);
-            
+            FileLogger.Instance.Debug($"Calculated relativePath: {relativePath}");
+            FileLogger.Instance.Debug($"Excluded nodes for comparison:");
+            foreach (var exNode in excludedNodes)
+            {
+                FileLogger.Instance.Debug($"  - Excluded PathId: {exNode.PathId}, RelativePath: {exNode.RelativePath}");
+            }
+
             if (excludedNodes.Any(e => e.PathId == pathId && e.RelativePath == relativePath))
             {
                 FileLogger.Instance.Info($"Skipping excluded node: {node.Path}");

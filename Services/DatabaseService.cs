@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using BitWatch.Models;
 using Dapper;
 using Npgsql;
@@ -16,6 +17,19 @@ namespace BitWatch.Services
         {
             _connectionString = connectionString;
             SetupDatabase();
+
+            // Explicit Dapper mapping for ExcludedNode
+            SqlMapper.SetTypeMap(
+                typeof(ExcludedNode),
+                new CustomPropertyTypeMap(
+                    typeof(ExcludedNode),
+                    (type, columnName) =>
+                    {
+                        if (columnName == "path_id") return type.GetProperty("PathId");
+                        if (columnName == "relative_path") return type.GetProperty("RelativePath");
+                        return type.GetProperty(columnName);
+                    }
+                ));
         }
 
         public NpgsqlConnection GetConnection()
@@ -82,8 +96,9 @@ namespace BitWatch.Services
         
         public void AddExcludedNode(int pathId, string relativePath)
         {
+            FileLogger.Instance.Debug($"Calling add_and_clean_excluded_node: pathId={pathId}, relativePath='{relativePath}'");
             using var connection = GetConnection();
-            connection.Execute("INSERT INTO excluded_nodes (path_id, relative_path) VALUES (@pathId, @relativePath) ON CONFLICT (path_id, relative_path) DO NOTHING", new { pathId, relativePath });
+            connection.Execute("SELECT add_and_clean_excluded_node(@p_path_id, @p_relative_path)", new { p_path_id = pathId, p_relative_path = relativePath });
         }
         
         public IEnumerable<ExcludedNode> GetExcludedNodes()
