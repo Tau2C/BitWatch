@@ -1,67 +1,109 @@
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Windows.Input;
+using BitWatch.Models;
+using BitWatch.Services;
 using ReactiveUI;
-using System.Reactive;
 
 namespace BitWatch.ViewModels
 {
     public class SettingsWindowViewModel : ReactiveObject
     {
-        private string _selectedHashAlgorithm = "";
-        public string SelectedHashAlgorithm
+        private readonly DatabaseService _databaseService;
+
+        public ObservableCollection<string> WatchedPaths { get; }
+        public ObservableCollection<ExcludedNode> ExcludedNodes { get; }
+
+        private string? _selectedWatchedPath;
+        public string? SelectedWatchedPath
         {
-            get => _selectedHashAlgorithm;
-            set => this.RaiseAndSetIfChanged(ref _selectedHashAlgorithm, value);
+            get => _selectedWatchedPath;
+            set => this.RaiseAndSetIfChanged(ref _selectedWatchedPath, value);
         }
 
-        private int _scanIntervalMinutes;
-        public int ScanIntervalMinutes
+        private ExcludedNode? _selectedExcludedNode;
+        public ExcludedNode? SelectedExcludedNode
         {
-            get => _scanIntervalMinutes;
-            set => this.RaiseAndSetIfChanged(ref _scanIntervalMinutes, value);
+            get => _selectedExcludedNode;
+            set => this.RaiseAndSetIfChanged(ref _selectedExcludedNode, value);
         }
 
-        private string _selectedOperationMode = "";
-        public string SelectedOperationMode
+        private string? _newWatchedPath;
+        public string? NewWatchedPath
         {
-            get => _selectedOperationMode;
-            set => this.RaiseAndSetIfChanged(ref _selectedOperationMode, value);
+            get => _newWatchedPath;
+            set => this.RaiseAndSetIfChanged(ref _newWatchedPath, value);
         }
 
-        public ObservableCollection<string> HashAlgorithms { get; }
-        public ObservableCollection<string> OperationModes { get; }
+        private string? _newExcludedPath;
+        public string? NewExcludedPath
+        {
+            get => _newExcludedPath;
+            set => this.RaiseAndSetIfChanged(ref _newExcludedPath, value);
+        }
 
-        public ReactiveCommand<Unit, Unit> SaveCommand { get; }
-        public ReactiveCommand<Unit, Unit> CancelCommand { get; }
+        public ICommand AddWatchedPathCommand { get; }
+        public ICommand RemoveWatchedPathCommand { get; }
+        public ICommand AddExcludedNodeCommand { get; }
+        public ICommand RemoveExcludedNodeCommand { get; }
 
         public SettingsWindowViewModel()
         {
-            // Initialize with some dummy data
-            HashAlgorithms = new ObservableCollection<string> { "SHA-256", "BLAKE3" };
-            OperationModes = new ObservableCollection<string> { "Database (DB) Mode", "Extended Attributes (xattr) Mode" };
+            _databaseService = new DatabaseService("Host=localhost;Port=5432;Username=postgres;Password=password;Database=bitwatch");
 
-            SelectedHashAlgorithm = HashAlgorithms[0];
-            ScanIntervalMinutes = 60;
-            SelectedOperationMode = OperationModes[0];
+            WatchedPaths = new ObservableCollection<string>(_databaseService.GetPathsToScan());
+            ExcludedNodes = new ObservableCollection<ExcludedNode>(_databaseService.GetExcludedNodes());
 
-            SaveCommand = ReactiveCommand.Create(Save);
-            CancelCommand = ReactiveCommand.Create(Cancel);
-        }
+            AddWatchedPathCommand = new RelayCommand((parameter) =>
+            {
+                if (!string.IsNullOrWhiteSpace(NewWatchedPath) && !WatchedPaths.Contains(NewWatchedPath))
+                {
+                    _databaseService.AddPathToScan(NewWatchedPath);
+                    WatchedPaths.Add(NewWatchedPath);
+                    NewWatchedPath = string.Empty;
+                }
+            });
 
-        private void Save()
-        {
-            // Logic to save settings
-            // This would typically involve interacting with a service or direct file storage
-            // For now, we'll just print to console or add to main window log
-            System.Console.WriteLine($"Settings Saved: Hash Algorithm - {SelectedHashAlgorithm}, Scan Interval - {ScanIntervalMinutes}, Operation Mode - {SelectedOperationMode}");
-            // In a real app, you would close the window here after saving
-        }
+            RemoveWatchedPathCommand = new RelayCommand((parameter) =>
+            {
+                if (SelectedWatchedPath != null)
+                {
+                    _databaseService.RemovePathToScan(SelectedWatchedPath);
+                    WatchedPaths.Remove(SelectedWatchedPath);
+                }
+            }, (parameter) => SelectedWatchedPath != null);
+            
+            AddExcludedNodeCommand = new RelayCommand((parameter) =>
+            {
+                if (!string.IsNullOrWhiteSpace(NewExcludedPath))
+                {
+                    // This is a simplified approach. A real implementation would need to
+                    // resolve the root path and calculate the relative path.
+                    var rootPath = WatchedPaths.FirstOrDefault(p => NewExcludedPath.StartsWith(p));
+                    if (rootPath != null)
+                    {
+                        var pathId = _databaseService.GetPathId(rootPath);
+                        var relativePath = NewExcludedPath.Substring(rootPath.Length).TrimStart(Path.DirectorySeparatorChar);
+                        _databaseService.AddExcludedNode(pathId, relativePath);
+                        ExcludedNodes.Clear();
+                        foreach(var node in _databaseService.GetExcludedNodes())
+                        {
+                            ExcludedNodes.Add(node);
+                        }
+                        NewExcludedPath = string.Empty;
+                    }
+                }
+            });
 
-        private void Cancel()
-        {
-            // Logic to cancel settings changes
-            System.Console.WriteLine("Settings Cancelled");
-            // In a real app, you would close the window here without saving
+            RemoveExcludedNodeCommand = new RelayCommand((parameter) =>
+            {
+                if (SelectedExcludedNode != null)
+                {
+                    _databaseService.RemoveExcludedNode(SelectedExcludedNode.Id);
+                    ExcludedNodes.Remove(SelectedExcludedNode);
+                }
+            }, (parameter) => SelectedExcludedNode != null);
         }
     }
 }

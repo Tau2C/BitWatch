@@ -5,7 +5,6 @@ using System.Linq;
 using BitWatch.Models;
 using Dapper;
 using Npgsql;
-using BitWatch.Services;
 
 namespace BitWatch.Services
 {
@@ -44,10 +43,16 @@ namespace BitWatch.Services
             return connection.Query<string>("SELECT path FROM paths_to_scan");
         }
         
+        public void RemovePathToScan(string path)
+        {
+            using var connection = GetConnection();
+            connection.Execute("DELETE FROM paths_to_scan WHERE path = @path", new { path });
+        }
+
         public int GetPathId(string path)
         {
             using var connection = GetConnection();
-            return connection.QuerySingle<int>("SELECT id FROM paths_to_scan WHERE path = @path", new { path });
+            return connection.QuerySingleOrDefault<int>("SELECT id FROM paths_to_scan WHERE path = @path", new { path });
         }
 
         public Node? GetNodeByRelativePath(int pathId, string relativePath)
@@ -73,6 +78,24 @@ namespace BitWatch.Services
                     "INSERT INTO nodes (path_id, relative_path, type, hash, hash_algorithm, last_checked) VALUES (@PathId, @RelativePath, @Type, @Hash, @HashAlgorithm, @LastChecked)",
                     node);
             }
+        }
+        
+        public void AddExcludedNode(int pathId, string relativePath)
+        {
+            using var connection = GetConnection();
+            connection.Execute("INSERT INTO excluded_nodes (path_id, relative_path) VALUES (@pathId, @relativePath) ON CONFLICT (path_id, relative_path) DO NOTHING", new { pathId, relativePath });
+        }
+        
+        public IEnumerable<ExcludedNode> GetExcludedNodes()
+        {
+            using var connection = GetConnection();
+            return connection.Query<ExcludedNode>("SELECT * FROM excluded_nodes");
+        }
+        
+        public void RemoveExcludedNode(int id)
+        {
+            using var connection = GetConnection();
+            connection.Execute("DELETE FROM excluded_nodes WHERE id = @id", new { id });
         }
     }
 }

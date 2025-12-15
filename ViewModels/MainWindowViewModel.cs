@@ -81,7 +81,7 @@ namespace BitWatch.ViewModels
                     if (rootPath != null)
                     {
                         var pathId = _databaseService.GetPathId(rootPath.Path);
-                        await ProcessNodeAsync(node, pathId, rootPath.Path, false);
+                        await ProcessNodeAsync(node, pathId, rootPath.Path, false, new List<ExcludedNode>());
                     }
                 }
             }, (parameter) => SelectedNode != null);
@@ -97,13 +97,14 @@ namespace BitWatch.ViewModels
             IsProgressVisible = true;
             Progress = 0; // Or set IsIndeterminate = true on the ProgressBar
             FileLogger.Instance.Info("Starting processing all roots...");
+            var excludedNodes = _databaseService.GetExcludedNodes().ToList();
 
             try
             {
                 foreach (var dir in Directories)
                 {
                     var pathId = _databaseService.GetPathId(dir.Path);
-                    await ProcessNodeAsync(dir, pathId, dir.Path, verify);
+                    await ProcessNodeAsync(dir, pathId, dir.Path, verify, excludedNodes);
                 }
             }
             finally
@@ -113,10 +114,16 @@ namespace BitWatch.ViewModels
             }
         }
 
-        private async Task<string?> ProcessNodeAsync(FileSystemNodeViewModel node, int pathId, string rootPath, bool verify)
+        private async Task<string?> ProcessNodeAsync(FileSystemNodeViewModel node, int pathId, string rootPath, bool verify, List<ExcludedNode> excludedNodes)
         {
             var relativePath = node.Path.Substring(rootPath.Length).TrimStart(Path.DirectorySeparatorChar);
             
+            if (excludedNodes.Any(e => e.PathId == pathId && e.RelativePath == relativePath))
+            {
+                FileLogger.Instance.Info($"Skipping excluded node: {node.Path}");
+                return null;
+            }
+
             if (node is DirectoryNodeViewModel dirNode)
             {
                 // If children haven't been loaded yet, load them.
@@ -128,7 +135,7 @@ namespace BitWatch.ViewModels
                 var childHashes = new List<string>();
                 foreach (var child in dirNode.Children)
                 {
-                    var childHash = await ProcessNodeAsync(child, pathId, rootPath, verify);
+                    var childHash = await ProcessNodeAsync(child, pathId, rootPath, verify, excludedNodes);
                     if (childHash != null)
                     {
                         childHashes.Add(childHash);

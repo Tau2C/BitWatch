@@ -3,30 +3,36 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:BitWatch.ViewModels"
-        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="BitWatch.SettingsWindow"
         Title="Settings"
         x:DataType="vm:SettingsWindowViewModel">
+
   <Design.DataContext>
     <vm:SettingsWindowViewModel/>
   </Design.DataContext>
-  <StackPanel Margin="10">
-    <TextBlock Text="Hash Algorithm:" Margin="0,0,0,5"/>
-    <ComboBox ItemsSource="{Binding HashAlgorithms}"
-              SelectedItem="{Binding SelectedHashAlgorithm}"
-              Margin="0,0,0,10"/>
 
-    <TextBlock Text="Scan Interval (minutes):" Margin="0,0,0,5"/>
-    <TextBox Text="{Binding ScanIntervalMinutes}" Margin="0,0,0,10"/>
+  <Grid Margin="10" RowDefinitions="Auto,*,Auto,*" ColumnDefinitions="*,Auto">
+    <!-- Watched Directories Section -->
+    <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Text="Watched Directories" FontWeight="Bold" Margin="0,0,0,5"/>
+    <ListBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding WatchedPaths}" SelectedItem="{Binding SelectedWatchedPath}" Margin="0,0,0,10"/>
+    
+    <TextBox Grid.Row="2" Grid.Column="0" Text="{Binding NewWatchedPath}" Watermark="Enter new path to watch..."/>
+    <Button Grid.Row="2" Grid.Column="1" Content="Add" Command="{Binding AddWatchedPathCommand}" Margin="5,0,0,0"/>
+    <Button Grid.Row="2" Grid.Column="1" Content="Remove" Command="{Binding RemoveWatchedPathCommand}" Margin="5,30,0,0"/>
 
-    <TextBlock Text="Operation Mode:" Margin="0,0,0,5"/>
-    <ComboBox ItemsSource="{Binding OperationModes}"
-              SelectedItem="{Binding SelectedOperationMode}"
-              Margin="0,0,0,10"/>
+    <!-- Excluded Nodes Section -->
+    <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Text="Excluded Nodes" FontWeight="Bold" Margin="0,10,0,5"/>
+    <ListBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding ExcludedNodes}" SelectedItem="{Binding SelectedExcludedNode}" Margin="0,0,0,10">
+        <ListBox.ItemTemplate>
+            <DataTemplate>
+                <TextBlock Text="{Binding RelativePath}"/>
+            </DataTemplate>
+        </ListBox.ItemTemplate>
+    </ListBox>
 
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-      <Button Content="Save" Command="{Binding SaveCommand}" Margin="0,0,10,0"/>
-      <Button Content="Cancel" Command="{Binding CancelCommand}"/>
-    </StackPanel>
-  </StackPanel>
+    <TextBox Grid.Row="5" Grid.Column="0" Text="{Binding NewExcludedPath}" Watermark="Enter new path to exclude..."/>
+    <Button Grid.Row="5" Grid.Column="1" Content="Add" Command="{Binding AddExcludedNodeCommand}" Margin="5,0,0,0"/>
+    <Button Grid.Row="5" Grid.Column="1" Content="Remove" Command="{Binding RemoveExcludedNodeCommand}" Margin="5,30,0,0"/>
+  </Grid>
 </Window>

@@ -5,11 +5,17 @@ CREATE TABLE IF NOT EXISTS paths_to_scan (
 
 CREATE TABLE IF NOT EXISTS nodes (
     id SERIAL PRIMARY KEY,
-    path_id INTEGER NOT NULL REFERENCES paths_to_scan(id),
+    path_id INTEGER NOT NULL REFERENCES paths_to_scan(id) ON DELETE CASCADE,
     relative_path TEXT NOT NULL,
     type TEXT NOT NULL, -- 'file' or 'directory'
     hash TEXT,
     hash_algorithm TEXT,
     last_checked TIMESTAMP,
     UNIQUE(path_id, relative_path)
+);
+
+CREATE TABLE IF NOT EXISTS excluded_nodes (
+    id SERIAL PRIMARY KEY,
+    path_id INTEGER NOT NULL REFERENCES paths_to_scan(id) ON DELETE CASCADE,
+    relative_path TEXT NOT NULL
 );
