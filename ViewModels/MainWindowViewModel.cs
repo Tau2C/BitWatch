@@ -67,6 +67,10 @@ namespace BitWatch.ViewModels
         public ICommand CalculateHashCommand { get; }
         public ICommand RunNowCommand { get; }
         public ICommand VerifyAllCommand { get; }
+        public ICommand VerifyNodeCommand { get; }
+        public ICommand ExcludeNodeCommand { get; }
+        public ICommand RemoveNodeCommand { get; }
+        public ICommand AddDirectoryCommand { get; }
 
         public MainWindowViewModel()
         {
@@ -75,7 +79,8 @@ namespace BitWatch.ViewModels
 
             CalculateHashCommand = new RelayCommand(async (parameter) =>
             {
-                if (SelectedNode is FileSystemNodeViewModel node)
+                var node = parameter as FileSystemNodeViewModel ?? SelectedNode;
+                if (node != null)
                 {
                     var rootPath = Directories.FirstOrDefault(d => node.Path.StartsWith(d.Path));
                     if (rootPath != null)
@@ -84,7 +89,59 @@ namespace BitWatch.ViewModels
                         await ProcessNodeAsync(node, pathId, rootPath.Path, false, new List<ExcludedNode>());
                     }
                 }
-            }, (parameter) => SelectedNode != null);
+            }, (parameter) => (parameter as FileSystemNodeViewModel ?? SelectedNode) != null);
+
+            VerifyNodeCommand = new RelayCommand(async (parameter) =>
+            {
+                var node = parameter as FileSystemNodeViewModel ?? SelectedNode;
+                if (node != null)
+                {
+                    var rootPath = Directories.FirstOrDefault(d => node.Path.StartsWith(d.Path));
+                    if (rootPath != null)
+                    {
+                        var pathId = _databaseService.GetPathId(rootPath.Path);
+                        var excludedNodes = _databaseService.GetExcludedNodes().ToList();
+                        await ProcessNodeAsync(node, pathId, rootPath.Path, true, excludedNodes);
+                    }
+                }
+            }, (parameter) => (parameter as FileSystemNodeViewModel ?? SelectedNode) != null);
+
+            ExcludeNodeCommand = new RelayCommand((parameter) =>
+            {
+                var node = parameter as FileSystemNodeViewModel ?? SelectedNode;
+                if (node != null)
+                {
+                    var rootPath = Directories.FirstOrDefault(d => node.Path.StartsWith(d.Path));
+                    if (rootPath != null)
+                    {
+                        var pathId = _databaseService.GetPathId(rootPath.Path);
+                        var relativePath = node.Path.Substring(rootPath.Path.Length).TrimStart(Path.DirectorySeparatorChar);
+                        _databaseService.AddExcludedNode(pathId, relativePath);
+                        AddLogMessage($"Excluded: {node.Path}");
+                    }
+                }
+            }, (parameter) => (parameter as FileSystemNodeViewModel ?? SelectedNode) != null);
+            
+            RemoveNodeCommand = new RelayCommand((parameter) =>
+            {
+                var node = parameter as DirectoryNodeViewModel ?? SelectedNode as DirectoryNodeViewModel;
+                if (node != null && Directories.Contains(node))
+                {
+                    _databaseService.RemovePathToScan(node.Path);
+                    Directories.Remove(node);
+                    AddLogMessage($"Removed: {node.Path}");
+                }
+            }, (parameter) =>
+            {
+                var node = parameter as DirectoryNodeViewModel ?? SelectedNode as DirectoryNodeViewModel;
+                return node != null && Directories.Contains(node);
+            });
+
+            AddDirectoryCommand = new RelayCommand((parameter) =>
+            {
+                // This command will be handled by the code-behind event handler.
+                // The parameter is not used here.
+            });
 
             RunNowCommand = new RelayCommand(async (parameter) => await ProcessAllRootsAsync(false));
             VerifyAllCommand = new RelayCommand(async (parameter) => await ProcessAllRootsAsync(true));
@@ -226,17 +283,27 @@ namespace BitWatch.ViewModels
         private void LoadRootDirectories()
         {
             var paths = _databaseService.GetPathsToScan().ToList();
-            if (!paths.Any())
-            {
-                var defaultPath = "/home/tau2c/Projects/bitwatch/";
-                _databaseService.AddPathToScan(defaultPath);
-                paths.Add(defaultPath);
-            }
-
             foreach (var path in paths)
             {
-                Directories.Add(new DirectoryNodeViewModel(path));
+                Directories.Add(new DirectoryNodeViewModel(path, isRoot: true));
             }
+        }
+
+        public void AddDirectory(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return;
+
+            // Check if the directory is already being watched
+            if (Directories.Any(d => d.Path == path))
+            {
+                AddLogMessage($"Directory '{path}' is already being watched.");
+                return;
+            }
+    
+            _databaseService.AddPathToScan(path);
+            var newNode = new DirectoryNodeViewModel(path, isRoot: true);
+            Directories.Add(newNode);
+            AddLogMessage($"Started watching directory: {path}");
         }
     }
 }

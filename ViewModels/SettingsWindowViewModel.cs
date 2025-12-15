@@ -73,7 +73,7 @@ namespace BitWatch.ViewModels
                     WatchedPaths.Remove(SelectedWatchedPath);
                 }
             }, (parameter) => SelectedWatchedPath != null);
-            
+
             AddExcludedNodeCommand = new RelayCommand((parameter) =>
             {
                 if (!string.IsNullOrWhiteSpace(NewExcludedPath))
@@ -87,7 +87,7 @@ namespace BitWatch.ViewModels
                         var relativePath = NewExcludedPath.Substring(rootPath.Length).TrimStart(Path.DirectorySeparatorChar);
                         _databaseService.AddExcludedNode(pathId, relativePath);
                         ExcludedNodes.Clear();
-                        foreach(var node in _databaseService.GetExcludedNodes())
+                        foreach (var node in _databaseService.GetExcludedNodes())
                         {
                             ExcludedNodes.Add(node);
                         }

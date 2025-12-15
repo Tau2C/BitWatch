@@ -2,6 +2,8 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using BitWatch.ViewModels;
 using System.Threading.Tasks;
+using Avalonia.Platform.Storage;
+using System.Linq;
 
 namespace BitWatch;
 
@@ -36,5 +38,31 @@ public partial class MainWindow : Window
     {
         var settingsWindow = new SettingsWindow();
         await settingsWindow.ShowDialog(this);
+    }
+
+    private async void OnAddDirectoryMenuItemClick(object? sender, RoutedEventArgs e)
+    {
+        var viewModel = DataContext as MainWindowViewModel;
+        if (viewModel == null) return;
+
+        // Get top level from the window
+        var topLevel = GetTopLevel(this);
+        if (topLevel == null) return;
+
+        var result = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Select Directory to Watch",
+            AllowMultiple = false
+        });
+
+        if (result.Any())
+        {
+            var selectedFolder = result[0].Path.ToString();
+            // The path from StorageProvider is a URI, so it needs to be converted to a local path.
+            if (result[0].Path.IsAbsoluteUri) {
+                selectedFolder = result[0].Path.LocalPath;
+            }
+            viewModel.AddDirectory(selectedFolder);
+        }
     }
 }

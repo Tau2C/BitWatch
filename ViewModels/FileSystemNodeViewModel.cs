@@ -72,8 +72,11 @@ namespace BitWatch.ViewModels
 
     public class DirectoryNodeViewModel : FileSystemNodeViewModel
     {
-        public DirectoryNodeViewModel(string path) : base(path)
+        public bool IsRoot { get; }
+
+        public DirectoryNodeViewModel(string path, bool isRoot = false) : base(path)
         {
+            IsRoot = isRoot;
             // Add a dummy child to make the expander visible
             Children.Add(new FileSystemNodeViewModel("Loading..."));
 
