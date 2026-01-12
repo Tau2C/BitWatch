@@ -45,8 +45,8 @@
                 SelectedItem="{Binding SelectedNode}">
         <TreeView.DataTemplates>
           <TreeDataTemplate DataType="vm:DirectoryNodeViewModel" ItemsSource="{Binding Children}">
-            <TextBlock Text="{Binding Name}">
-              <TextBlock.ContextMenu>
+            <Panel Background="Transparent">
+              <Panel.ContextMenu>
                 <ContextMenu>
                   <MenuItem Header="Verify" Command="{Binding $parent[TreeView].DataContext.VerifyNodeCommand}" CommandParameter="{Binding}"/>
                   <MenuItem Header="Update Hash" Command="{Binding $parent[TreeView].DataContext.CalculateHashCommand}" CommandParameter="{Binding}"/>
@@ -55,8 +55,10 @@
                   <Separator IsVisible="{Binding IsRoot}"/>
                   <MenuItem Header="Add New Directory" Command="{Binding $parent[TreeView].DataContext.AddDirectoryCommand}"/>
                 </ContextMenu>
-              </TextBlock.ContextMenu>
-            </TextBlock>
+              </Panel.ContextMenu>
+              <TextBlock Text="{Binding Name}" IsVisible="{Binding IsNotExcluded}"/>
+              <TextBlock Text="{Binding Name}" IsVisible="{Binding IsExcluded}" Foreground="{Binding DisplayColor}"/>
+            </Panel>
           </TreeDataTemplate>
           <TreeDataTemplate DataType="vm:FileNodeViewModel">
             <StackPanel Orientation="Horizontal">
@@ -67,8 +69,10 @@
                   <MenuItem Header="Exclude" Command="{Binding $parent[TreeView].DataContext.ExcludeNodeCommand}" CommandParameter="{Binding}"/>
                 </ContextMenu>
               </StackPanel.ContextMenu>
-              <TextBlock Text="{Binding Name}" />
-              <TextBlock Text="{Binding Hash, StringFormat=' - {0}'}" Margin="5,0,0,0" />
+              <TextBlock Text="{Binding Name}" IsVisible="{Binding IsNotExcluded}" />
+              <TextBlock Text="{Binding Name}" IsVisible="{Binding IsExcluded}" Foreground="{Binding DisplayColor}" />
+              <TextBlock Text="{Binding Hash, StringFormat=' - {0}'}" Margin="5,0,0,0" IsVisible="{Binding IsNotExcluded}" />
+              <TextBlock Text="{Binding Hash, StringFormat=' - {0}'}" Margin="5,0,0,0" IsVisible="{Binding IsExcluded}" Foreground="{Binding DisplayColor}" />
             </StackPanel>
           </TreeDataTemplate>
         </TreeView.DataTemplates>

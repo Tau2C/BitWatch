@@ -62,8 +62,14 @@ namespace BitWatch.ViewModels
         public bool IsExcluded
         {
             get => _isExcluded;
-            set => this.RaiseAndSetIfChanged(ref _isExcluded, value);
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _isExcluded, value);
+                this.RaisePropertyChanged(nameof(IsNotExcluded));
+            }
         }
+
+        public bool IsNotExcluded => !IsExcluded;
 
         private IBrush? _displayColor;
         public IBrush? DisplayColor

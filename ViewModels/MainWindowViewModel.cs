@@ -163,8 +163,8 @@ namespace BitWatch.ViewModels
             VerifyAllCommand = new RelayCommand(async (parameter) => await ProcessAllRootsAsync(true, false));
             ClearLogCommand = new RelayCommand((parameter) => LogMessages.Clear()); // Implementation for ClearLogCommand
 
-            LoadRootDirectories();
             LoadSettings();
+            LoadRootDirectories();
         }
 
         private async Task ProcessAllRootsAsync(bool verify, bool deleteRemovedNodes)
@@ -354,11 +354,12 @@ namespace BitWatch.ViewModels
         private void LoadRootDirectories()
         {
             var paths = _databaseService.GetPathsToScan().ToList();
+            var excludedNodes = _databaseService.GetExcludedNodes().ToList();
             foreach (var path in paths)
             {
                 var node = new DirectoryNodeViewModel(path, isRoot: true);
                 Directories.Add(node);
-                CheckExclusionsForNode(node, _databaseService.GetPathId(path));
+                CheckExclusionsForNode(node, _databaseService.GetPathId(path), path, excludedNodes);
             }
         }
 
@@ -396,19 +397,20 @@ namespace BitWatch.ViewModels
 
         public void RefreshAllNodesExclusion()
         {
+            var excludedNodes = _databaseService.GetExcludedNodes().ToList();
             foreach (var dir in Directories)
             {
                 var pathId = _databaseService.GetPathId(dir.Path);
-                TraverseAndCheckExclusion(dir, pathId);
+                TraverseAndCheckExclusion(dir, pathId, dir.Path, excludedNodes);
             }
         }
 
-        private void TraverseAndCheckExclusion(FileSystemNodeViewModel node, int pathId)
+        private void TraverseAndCheckExclusion(FileSystemNodeViewModel node, int pathId, string rootPath, List<ExcludedNode> excludedNodes)
         {
-            CheckExclusionsForNode(node, pathId);
+            CheckExclusionsForNode(node, pathId, rootPath, excludedNodes);
             foreach (var child in node.Children)
             {
-                TraverseAndCheckExclusion(child, pathId);
+                TraverseAndCheckExclusion(child, pathId, rootPath, excludedNodes);
             }
         }
 
@@ -418,20 +420,17 @@ namespace BitWatch.ViewModels
             if (rootPath != null)
             {
                 var pathId = _databaseService.GetPathId(rootPath.Path);
+                var excludedNodes = _databaseService.GetExcludedNodes().ToList();
                 foreach (var child in parent.Children)
                 {
-                    CheckExclusionsForNode(child, pathId);
+                    CheckExclusionsForNode(child, pathId, rootPath.Path, excludedNodes);
                 }
             }
         }
 
-        private void CheckExclusionsForNode(FileSystemNodeViewModel node, int pathId)
+        private void CheckExclusionsForNode(FileSystemNodeViewModel node, int pathId, string rootPath, List<ExcludedNode> excludedNodes)
         {
-            var rootPath = Directories.FirstOrDefault(d => node.Path.StartsWith(d.Path));
-            if (rootPath == null) return;
-
-            var relativePath = node.Path.Substring(rootPath.Path.Length).TrimStart(Path.DirectorySeparatorChar);
-            var excludedNodes = _databaseService.GetExcludedNodes(); // Optimization: This could be cached
+            var relativePath = node.Path.Substring(rootPath.Length).TrimStart(Path.DirectorySeparatorChar);
 
             bool isExcluded = excludedNodes.Any(ex => 
                 ex.PathId == pathId && 
@@ -440,6 +439,7 @@ namespace BitWatch.ViewModels
             node.IsExcluded = isExcluded;
             if (isExcluded)
             {
+                if (_excludedBrush == null) UpdateExcludedBrush();
                 node.DisplayColor = _excludedBrush;
             }
             else
@@ -462,7 +462,8 @@ namespace BitWatch.ViewModels
             _databaseService.AddPathToScan(path);
             var newNode = new DirectoryNodeViewModel(path, isRoot: true);
             Directories.Add(newNode);
-            CheckExclusionsForNode(newNode, _databaseService.GetPathId(path));
+            var excludedNodes = _databaseService.GetExcludedNodes().ToList();
+            CheckExclusionsForNode(newNode, _databaseService.GetPathId(path), path, excludedNodes);
             AddLogMessage($"Started watching directory: {path}");
         }
     }
