@@ -6,12 +6,16 @@ namespace BitWatch.Services
     public class FileLogger
     {
         private static readonly Lazy<FileLogger> _instance = new Lazy<FileLogger>(() => new FileLogger());
-        private readonly string _logFilePath = "bitwatch.log";
+        private string _logFilePath;
         private readonly object _lock = new object();
 
         public static FileLogger Instance => _instance.Value;
 
-        private FileLogger() { }
+        private FileLogger()
+        {
+            var baseDirectory = AppContext.BaseDirectory;
+            _logFilePath = Path.Combine(baseDirectory, $"bitwatch_{DateTime.Now:yyyyMMddHHmmss}.log");
+        }
 
         public void Info(string message)
         {

@@ -26,6 +26,9 @@
         <MenuItem Header="_Run Now" Command="{Binding RunNowCommand}"/>
         <MenuItem Header="_Verify All" Command="{Binding VerifyAllCommand}"/>
       </MenuItem>
+      <MenuItem Header="_View">
+        <MenuItem Header="_Clear Log" Command="{Binding ClearLogCommand}"/>
+      </MenuItem>
     </Menu>
 
     <Border DockPanel.Dock="Bottom" BorderBrush="Gray" BorderThickness="0,1,0,0">

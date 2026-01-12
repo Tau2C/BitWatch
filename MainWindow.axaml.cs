@@ -30,6 +30,7 @@ public partial class MainWindow : Window
             if (directoryNode.Children.Count == 1 && directoryNode.Children[0].Name == "Loading...")
             {
                 directoryNode.LoadChildren();
+                (DataContext as MainWindowViewModel)?.CheckExclusionsForChildren(directoryNode);
             }
         }
     }
@@ -38,6 +39,7 @@ public partial class MainWindow : Window
     {
         var settingsWindow = new SettingsWindow();
         await settingsWindow.ShowDialog(this);
+        (DataContext as MainWindowViewModel)?.ReloadSettings();
     }
 
     private async void OnAddDirectoryMenuItemClick(object? sender, RoutedEventArgs e)

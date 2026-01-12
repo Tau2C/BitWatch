@@ -18,6 +18,22 @@ namespace BitWatch.Services
             _connectionString = connectionString;
             SetupDatabase();
 
+            // Explicit Dapper mapping for Node
+            SqlMapper.SetTypeMap(
+                typeof(Node),
+                new CustomPropertyTypeMap(
+                    typeof(Node),
+                    (type, columnName) =>
+                    {
+                        return type.GetProperties().FirstOrDefault(prop => 
+                            string.Equals(prop.Name, columnName, StringComparison.OrdinalIgnoreCase) ||
+                            (prop.Name == "PathId" && columnName == "path_id") ||
+                            (prop.Name == "RelativePath" && columnName == "relative_path") ||
+                            (prop.Name == "HashAlgorithm" && columnName == "hash_algorithm") ||
+                            (prop.Name == "LastChecked" && columnName == "last_checked"));
+                    }
+                ));
+
             // Explicit Dapper mapping for ExcludedNode
             SqlMapper.SetTypeMap(
                 typeof(ExcludedNode),
@@ -25,9 +41,10 @@ namespace BitWatch.Services
                     typeof(ExcludedNode),
                     (type, columnName) =>
                     {
-                        if (columnName == "path_id") return type.GetProperty("PathId");
-                        if (columnName == "relative_path") return type.GetProperty("RelativePath");
-                        return type.GetProperty(columnName);
+                        return type.GetProperties().FirstOrDefault(prop => 
+                            string.Equals(prop.Name, columnName, StringComparison.OrdinalIgnoreCase) ||
+                            (prop.Name == "PathId" && columnName == "path_id") ||
+                            (prop.Name == "RelativePath" && columnName == "relative_path"));
                     }
                 ));
         }
@@ -41,7 +58,9 @@ namespace BitWatch.Services
         {
             FileLogger.Instance.Info("Setting up database...");
             using var connection = GetConnection();
-            var script = File.ReadAllText("db_setup.sql");
+            var baseDirectory = AppContext.BaseDirectory;
+            var sqlFilePath = Path.Combine(baseDirectory, "db_setup.sql");
+            var script = File.ReadAllText(sqlFilePath);
             connection.Execute(script);
         }
 
@@ -100,6 +119,22 @@ namespace BitWatch.Services
             using var connection = GetConnection();
             connection.Execute("SELECT add_and_clean_excluded_node(@p_path_id, @p_relative_path)", new { p_path_id = pathId, p_relative_path = relativePath });
         }
+
+        public IEnumerable<Node> GetNodesForPath(int pathId)
+        {
+            using var connection = GetConnection();
+            return connection.Query<Node>("SELECT * FROM nodes WHERE path_id = @pathId", new { pathId });
+        }
+
+        public void RemoveNodes(List<Node> nodesToRemove)
+        {
+            if (!nodesToRemove.Any()) return;
+
+            FileLogger.Instance.Info($"Removing {nodesToRemove.Count} nodes from database.");
+            using var connection = GetConnection();
+            // Dapper can execute a single DELETE statement for multiple items efficiently
+            connection.Execute("DELETE FROM nodes WHERE id = @Id", nodesToRemove);
+        }
         
         public IEnumerable<ExcludedNode> GetExcludedNodes()
         {
@@ -111,6 +146,18 @@ namespace BitWatch.Services
         {
             using var connection = GetConnection();
             connection.Execute("DELETE FROM excluded_nodes WHERE id = @id", new { id });
+        }
+
+        public string? GetSetting(string key)
+        {
+            using var connection = GetConnection();
+            return connection.QuerySingleOrDefault<string>("SELECT value FROM app_settings WHERE key = @key", new { key });
+        }
+
+        public void SaveSetting(string key, string value)
+        {
+            using var connection = GetConnection();
+            connection.Execute("INSERT INTO app_settings (key, value) VALUES (@key, @value) ON CONFLICT (key) DO UPDATE SET value = @value", new { key, value });
         }
     }
 }

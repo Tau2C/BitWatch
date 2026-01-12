@@ -10,6 +10,7 @@ using System.Windows.Input;
 using Avalonia.Threading;
 using BitWatch.Models;
 using BitWatch.Services;
+using Avalonia.Media;
 using ReactiveUI;
 
 namespace BitWatch.ViewModels
@@ -71,6 +72,20 @@ namespace BitWatch.ViewModels
         public ICommand ExcludeNodeCommand { get; }
         public ICommand RemoveNodeCommand { get; }
         public ICommand AddDirectoryCommand { get; }
+        public ICommand ClearLogCommand { get; }
+
+        private string _excludedColor = "Gray";
+        public string ExcludedColor
+        {
+            get => _excludedColor;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _excludedColor, value);
+                UpdateExcludedBrush();
+            }
+        }
+
+        private IBrush? _excludedBrush;
 
         public MainWindowViewModel()
         {
@@ -86,7 +101,8 @@ namespace BitWatch.ViewModels
                     if (rootPath != null)
                     {
                         var pathId = _databaseService.GetPathId(rootPath.Path);
-                        await ProcessNodeAsync(node, pathId, rootPath.Path, false, new List<ExcludedNode>());
+                        var excludedNodes = _databaseService.GetExcludedNodes().ToList();
+                        await ProcessNodeAsync(node, pathId, rootPath.Path, false, excludedNodes, new HashSet<string>());
                     }
                 }
             }, (parameter) => (parameter as FileSystemNodeViewModel ?? SelectedNode) != null);
@@ -101,7 +117,7 @@ namespace BitWatch.ViewModels
                     {
                         var pathId = _databaseService.GetPathId(rootPath.Path);
                         var excludedNodes = _databaseService.GetExcludedNodes().ToList();
-                        await ProcessNodeAsync(node, pathId, rootPath.Path, true, excludedNodes);
+                        await ProcessNodeAsync(node, pathId, rootPath.Path, true, excludedNodes, new HashSet<string>());
                     }
                 }
             }, (parameter) => (parameter as FileSystemNodeViewModel ?? SelectedNode) != null);
@@ -143,13 +159,15 @@ namespace BitWatch.ViewModels
                 // The parameter is not used here.
             });
 
-            RunNowCommand = new RelayCommand(async (parameter) => await ProcessAllRootsAsync(false));
-            VerifyAllCommand = new RelayCommand(async (parameter) => await ProcessAllRootsAsync(true));
+            RunNowCommand = new RelayCommand(async (parameter) => await ProcessAllRootsAsync(false, true));
+            VerifyAllCommand = new RelayCommand(async (parameter) => await ProcessAllRootsAsync(true, false));
+            ClearLogCommand = new RelayCommand((parameter) => LogMessages.Clear()); // Implementation for ClearLogCommand
 
             LoadRootDirectories();
+            LoadSettings();
         }
 
-        private async Task ProcessAllRootsAsync(bool verify)
+        private async Task ProcessAllRootsAsync(bool verify, bool deleteRemovedNodes)
         {
             IsProgressVisible = true;
             Progress = 0; // Or set IsIndeterminate = true on the ProgressBar
@@ -161,7 +179,31 @@ namespace BitWatch.ViewModels
                 foreach (var dir in Directories)
                 {
                     var pathId = _databaseService.GetPathId(dir.Path);
-                    await ProcessNodeAsync(dir, pathId, dir.Path, verify, excludedNodes);
+                    // Get all nodes for this path from the database before traversal
+                    var existingNodesInDb = _databaseService.GetNodesForPath(pathId).ToDictionary(n => n.RelativePath, n => n);
+                    var foundNodesDuringTraversal = new HashSet<string>();
+
+                    await ProcessNodeAsync(dir, pathId, dir.Path, verify, excludedNodes, foundNodesDuringTraversal);
+
+                    // Identify removed nodes
+                    var removedNodes = existingNodesInDb.Values
+                                            .Where(nodeInDb => !foundNodesDuringTraversal.Contains(nodeInDb.RelativePath))
+                                            .ToList();
+
+                    if (removedNodes.Any())
+                    {
+                        FileLogger.Instance.Info($"Detected {removedNodes.Count} removed nodes for root: {dir.Path}");
+                        foreach (var removedNode in removedNodes)
+                        {
+                            var fullPath = Path.Combine(dir.Path, removedNode.RelativePath);
+                            AddLogMessage($"Verification Error: File removed from filesystem: {fullPath}");
+                            FileLogger.Instance.Error($"Verification Error: Node removed from filesystem: {fullPath}");
+                        }
+                        if (deleteRemovedNodes)
+                        {
+                            _databaseService.RemoveNodes(removedNodes);
+                        }
+                    }
                 }
             }
             finally
@@ -171,20 +213,36 @@ namespace BitWatch.ViewModels
             }
         }
 
-        private async Task<string?> ProcessNodeAsync(FileSystemNodeViewModel node, int pathId, string rootPath, bool verify, List<ExcludedNode> excludedNodes)
+        private async Task<string?> ProcessNodeAsync(FileSystemNodeViewModel node, int pathId, string rootPath, bool verify, List<ExcludedNode> excludedNodes, HashSet<string> foundNodesDuringTraversal)
         {
             FileLogger.Instance.Debug($"Processing node: {node.Path}, rootPath: {rootPath}, pathId: {pathId}");
             var relativePath = node.Path.Substring(rootPath.Length).TrimStart(Path.DirectorySeparatorChar);
-            FileLogger.Instance.Debug($"Calculated relativePath: {relativePath}");
-            FileLogger.Instance.Debug($"Excluded nodes for comparison:");
+            FileLogger.Instance.Debug($"Calculated relativePath: '{relativePath}'");
+            
+            // Add current node to found nodes tracker
+            foundNodesDuringTraversal.Add(relativePath);
+
+            bool isCurrentlyExcluded = false;
             foreach (var exNode in excludedNodes)
             {
-                FileLogger.Instance.Debug($"  - Excluded PathId: {exNode.PathId}, RelativePath: {exNode.RelativePath}");
+                FileLogger.Instance.Debug($"  - Comparing with Excluded PathId: {exNode.PathId}, RelativePath: '{exNode.RelativePath}'");
+                if (exNode.PathId == pathId && (relativePath == exNode.RelativePath || relativePath.StartsWith(exNode.RelativePath + Path.DirectorySeparatorChar)))
+                {
+                    FileLogger.Instance.Debug($"  - Match found: Node {node.Path} is explicitly excluded.");
+                    isCurrentlyExcluded = true;
+                    break;
+                }
             }
+            FileLogger.Instance.Debug($"Result of excludedNodes.Any(): {isCurrentlyExcluded}");
 
-            if (excludedNodes.Any(e => e.PathId == pathId && e.RelativePath == relativePath))
+            if (isCurrentlyExcluded)
             {
                 FileLogger.Instance.Info($"Skipping excluded node: {node.Path}");
+                if (verify)
+                {
+                    var dbNode = _databaseService.GetNodeByRelativePath(pathId, relativePath);
+                    return dbNode?.Hash;
+                }
                 return null;
             }
 
@@ -199,7 +257,7 @@ namespace BitWatch.ViewModels
                 var childHashes = new List<string>();
                 foreach (var child in dirNode.Children)
                 {
-                    var childHash = await ProcessNodeAsync(child, pathId, rootPath, verify, excludedNodes);
+                    var childHash = await ProcessNodeAsync(child, pathId, rootPath, verify, excludedNodes, foundNodesDuringTraversal);
                     if (childHash != null)
                     {
                         childHashes.Add(childHash);
@@ -216,15 +274,18 @@ namespace BitWatch.ViewModels
                     dirNode.HashAlgorithm = "SHA256";
                 });
 
-                _databaseService.UpsertNode(new Node
+                if (!verify)
                 {
-                    PathId = pathId,
-                    RelativePath = relativePath,
-                    Type = "directory",
-                    Hash = dirHash,
-                    HashAlgorithm = "SHA256",
-                    LastChecked = DateTime.UtcNow
-                });
+                    _databaseService.UpsertNode(new Node
+                    {
+                        PathId = pathId,
+                        RelativePath = relativePath,
+                        Type = "directory",
+                        Hash = dirHash,
+                        HashAlgorithm = "SHA256",
+                        LastChecked = DateTime.UtcNow
+                    });
+                }
                 
                 FileLogger.Instance.Info($"Hashed directory {dirNode.Path}");
                 return dirHash;
@@ -256,15 +317,18 @@ namespace BitWatch.ViewModels
                         }
                     });
 
-                    _databaseService.UpsertNode(new Node
+                    if (!verify)
                     {
-                        PathId = pathId,
-                        RelativePath = relativePath,
-                        Type = "file",
-                        Hash = hashString,
-                        HashAlgorithm = "SHA256",
-                        LastChecked = DateTime.UtcNow
-                    });
+                        _databaseService.UpsertNode(new Node
+                        {
+                            PathId = pathId,
+                            RelativePath = relativePath,
+                            Type = "file",
+                            Hash = hashString,
+                            HashAlgorithm = "SHA256",
+                            LastChecked = DateTime.UtcNow
+                        });
+                    }
                     
                     FileLogger.Instance.Info($"Hashed file {fileNode.Path}");
                     return hashString;
@@ -292,7 +356,95 @@ namespace BitWatch.ViewModels
             var paths = _databaseService.GetPathsToScan().ToList();
             foreach (var path in paths)
             {
-                Directories.Add(new DirectoryNodeViewModel(path, isRoot: true));
+                var node = new DirectoryNodeViewModel(path, isRoot: true);
+                Directories.Add(node);
+                CheckExclusionsForNode(node, _databaseService.GetPathId(path));
+            }
+        }
+
+        private void LoadSettings()
+        {
+            var color = _databaseService.GetSetting("ExcludedColor");
+            if (!string.IsNullOrEmpty(color))
+            {
+                ExcludedColor = color;
+            }
+            else
+            {
+                ExcludedColor = "Gray";
+            }
+            UpdateExcludedBrush();
+        }
+
+        private void UpdateExcludedBrush()
+        {
+            try
+            {
+                _excludedBrush = Brush.Parse(ExcludedColor);
+            }
+            catch
+            {
+                _excludedBrush = Brushes.Gray;
+            }
+        }
+
+        public void ReloadSettings()
+        {
+            LoadSettings();
+            RefreshAllNodesExclusion();
+        }
+
+        public void RefreshAllNodesExclusion()
+        {
+            foreach (var dir in Directories)
+            {
+                var pathId = _databaseService.GetPathId(dir.Path);
+                TraverseAndCheckExclusion(dir, pathId);
+            }
+        }
+
+        private void TraverseAndCheckExclusion(FileSystemNodeViewModel node, int pathId)
+        {
+            CheckExclusionsForNode(node, pathId);
+            foreach (var child in node.Children)
+            {
+                TraverseAndCheckExclusion(child, pathId);
+            }
+        }
+
+        public void CheckExclusionsForChildren(DirectoryNodeViewModel parent)
+        {
+            var rootPath = Directories.FirstOrDefault(d => parent.Path.StartsWith(d.Path));
+            if (rootPath != null)
+            {
+                var pathId = _databaseService.GetPathId(rootPath.Path);
+                foreach (var child in parent.Children)
+                {
+                    CheckExclusionsForNode(child, pathId);
+                }
+            }
+        }
+
+        private void CheckExclusionsForNode(FileSystemNodeViewModel node, int pathId)
+        {
+            var rootPath = Directories.FirstOrDefault(d => node.Path.StartsWith(d.Path));
+            if (rootPath == null) return;
+
+            var relativePath = node.Path.Substring(rootPath.Path.Length).TrimStart(Path.DirectorySeparatorChar);
+            var excludedNodes = _databaseService.GetExcludedNodes(); // Optimization: This could be cached
+
+            bool isExcluded = excludedNodes.Any(ex => 
+                ex.PathId == pathId && 
+                (relativePath == ex.RelativePath || relativePath.StartsWith(ex.RelativePath + Path.DirectorySeparatorChar)));
+
+            node.IsExcluded = isExcluded;
+            if (isExcluded)
+            {
+                node.DisplayColor = _excludedBrush;
+            }
+            else
+            {
+                node.DisplayColor = null; // Reset to default (inherit from theme)
             }
         }
 
@@ -310,6 +462,7 @@ namespace BitWatch.ViewModels
             _databaseService.AddPathToScan(path);
             var newNode = new DirectoryNodeViewModel(path, isRoot: true);
             Directories.Add(newNode);
+            CheckExclusionsForNode(newNode, _databaseService.GetPathId(path));
             AddLogMessage($"Started watching directory: {path}");
         }
     }

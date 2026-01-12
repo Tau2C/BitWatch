@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using ReactiveUI;
+using Avalonia.Media;
 
 namespace BitWatch.ViewModels
 {
@@ -55,6 +56,20 @@ namespace BitWatch.ViewModels
         {
             get => _notes;
             set => this.RaiseAndSetIfChanged(ref _notes, value);
+        }
+
+        private bool _isExcluded;
+        public bool IsExcluded
+        {
+            get => _isExcluded;
+            set => this.RaiseAndSetIfChanged(ref _isExcluded, value);
+        }
+
+        private IBrush? _displayColor;
+        public IBrush? DisplayColor
+        {
+            get => _displayColor;
+            set => this.RaiseAndSetIfChanged(ref _displayColor, value);
         }
 
         public ObservableCollection<FileSystemNodeViewModel> Children { get; } = new ObservableCollection<FileSystemNodeViewModel>();

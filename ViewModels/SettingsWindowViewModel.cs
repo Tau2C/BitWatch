@@ -43,6 +43,17 @@ namespace BitWatch.ViewModels
             set => this.RaiseAndSetIfChanged(ref _newExcludedPath, value);
         }
 
+        private string _excludedColor = "Gray";
+        public string ExcludedColor
+        {
+            get => _excludedColor;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _excludedColor, value);
+                _databaseService.SaveSetting("ExcludedColor", value);
+            }
+        }
+
         public ICommand AddWatchedPathCommand { get; }
         public ICommand RemoveWatchedPathCommand { get; }
         public ICommand AddExcludedNodeCommand { get; }
@@ -54,6 +65,9 @@ namespace BitWatch.ViewModels
 
             WatchedPaths = new ObservableCollection<string>(_databaseService.GetPathsToScan());
             ExcludedNodes = new ObservableCollection<ExcludedNode>(_databaseService.GetExcludedNodes());
+
+            var color = _databaseService.GetSetting("ExcludedColor");
+            if (!string.IsNullOrEmpty(color)) ExcludedColor = color;
 
             AddWatchedPathCommand = new RelayCommand((parameter) =>
             {
