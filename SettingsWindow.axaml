@@ -12,27 +12,20 @@
     <vm:SettingsWindowViewModel/>
   </Design.DataContext>
 
-  <Grid Margin="10" RowDefinitions="Auto,*,Auto,*" ColumnDefinitions="*,Auto">
-    <!-- Watched Directories Section -->
-    <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Text="Watched Directories" FontWeight="Bold" Margin="0,0,0,5"/>
-    <ListBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding WatchedPaths}" SelectedItem="{Binding SelectedWatchedPath}" Margin="0,0,0,10"/>
-    
-    <TextBox Grid.Row="2" Grid.Column="0" Text="{Binding NewWatchedPath}" Watermark="Enter new path to watch..."/>
-    <Button Grid.Row="2" Grid.Column="1" Content="Add" Command="{Binding AddWatchedPathCommand}" Margin="5,0,0,0"/>
-    <Button Grid.Row="2" Grid.Column="1" Content="Remove" Command="{Binding RemoveWatchedPathCommand}" Margin="5,30,0,0"/>
+  <Grid Margin="10" RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="Auto,*">
+    <!-- Database Connection -->
+    <TextBlock Grid.Row="0" Grid.Column="0" Text="DB Connection:" VerticalAlignment="Center" Margin="0,0,10,10"/>
+    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DatabaseConnectionString}" IsReadOnly="True" Margin="0,0,0,10"/>
 
-    <!-- Excluded Nodes Section -->
-    <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Text="Excluded Nodes" FontWeight="Bold" Margin="0,10,0,5"/>
-    <ListBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding ExcludedNodes}" SelectedItem="{Binding SelectedExcludedNode}" Margin="0,0,0,10">
-        <ListBox.ItemTemplate>
-            <DataTemplate>
-                <TextBlock Text="{Binding RelativePath}"/>
-            </DataTemplate>
-        </ListBox.ItemTemplate>
-    </ListBox>
+    <!-- Hash Algorithm -->
+    <TextBlock Grid.Row="1" Grid.Column="0" Text="Hash Algorithm:" VerticalAlignment="Center" Margin="0,0,10,10"/>
+    <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding HashAlgorithms}" SelectedItem="{Binding SelectedHashAlgorithm}" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
 
-    <TextBox Grid.Row="5" Grid.Column="0" Text="{Binding NewExcludedPath}" Watermark="Enter new path to exclude..."/>
-    <Button Grid.Row="5" Grid.Column="1" Content="Add" Command="{Binding AddExcludedNodeCommand}" Margin="5,0,0,0"/>
-    <Button Grid.Row="5" Grid.Column="1" Content="Remove" Command="{Binding RemoveExcludedNodeCommand}" Margin="5,30,0,0"/>
+    <!-- Appearance -->
+    <TextBlock Grid.Row="2" Grid.Column="0" Text="Excluded Color:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
+        <TextBox Text="{Binding ExcludedColor}" Width="100" Watermark="e.g. Gray"/>
+        <Button Content="Reset" Command="{Binding ResetColorCommand}" Margin="5,0,0,0"/>
+    </StackPanel>
   </Grid>
 </Window>

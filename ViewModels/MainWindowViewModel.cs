@@ -430,6 +430,8 @@ namespace BitWatch.ViewModels
 
         private void CheckExclusionsForNode(FileSystemNodeViewModel node, int pathId, string rootPath, List<ExcludedNode> excludedNodes)
         {
+            if (!node.Path.StartsWith(rootPath)) return;
+
             var relativePath = node.Path.Substring(rootPath.Length).TrimStart(Path.DirectorySeparatorChar);
 
             bool isExcluded = excludedNodes.Any(ex => 
