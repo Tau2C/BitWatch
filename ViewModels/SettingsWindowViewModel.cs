@@ -43,6 +43,17 @@ namespace BitWatch.ViewModels
             }
         }
 
+        private int _autoUpdateInterval = 30;
+        public int AutoUpdateInterval
+        {
+            get => _autoUpdateInterval;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _autoUpdateInterval, value);
+                _databaseService.SaveSetting("AutoUpdateInterval", value.ToString());
+            }
+        }
+
         public ICommand ResetColorCommand { get; }
 
         public SettingsWindowViewModel()
@@ -57,6 +68,9 @@ namespace BitWatch.ViewModels
             {
                 SelectedHashAlgorithm = algo;
             }
+
+            var interval = _databaseService.GetSetting("AutoUpdateInterval");
+            if (int.TryParse(interval, out int minutes)) AutoUpdateInterval = minutes;
 
             ResetColorCommand = new RelayCommand((parameter) => ExcludedColor = "Gray");
         }

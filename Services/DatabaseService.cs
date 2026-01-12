@@ -25,14 +25,14 @@ namespace BitWatch.Services
                     typeof(Node),
                     (type, columnName) =>
                     {
-                        return type.GetProperties().FirstOrDefault(prop => 
+                        return type.GetProperties().FirstOrDefault(prop =>
                             string.Equals(prop.Name, columnName, StringComparison.OrdinalIgnoreCase) ||
                             (prop.Name == "PathId" && columnName == "path_id") ||
                             (prop.Name == "RelativePath" && columnName == "relative_path") ||
                             (prop.Name == "HashAlgorithm" && columnName == "hash_algorithm") ||
-                            (prop.Name == "LastChecked" && columnName == "last_checked"));
+                            (prop.Name == "LastChecked" && columnName == "last_checked"))!;
                     }
-                ));
+            ));
 
             // Explicit Dapper mapping for ExcludedNode
             SqlMapper.SetTypeMap(
@@ -41,12 +41,12 @@ namespace BitWatch.Services
                     typeof(ExcludedNode),
                     (type, columnName) =>
                     {
-                        return type.GetProperties().FirstOrDefault(prop => 
+                        return type.GetProperties().FirstOrDefault(prop =>
                             string.Equals(prop.Name, columnName, StringComparison.OrdinalIgnoreCase) ||
                             (prop.Name == "PathId" && columnName == "path_id") ||
-                            (prop.Name == "RelativePath" && columnName == "relative_path"));
-                    }
-                ));
+                            (prop.Name == "RelativePath" && columnName == "relative_path"))!;
+                    })
+                );
         }
 
         public NpgsqlConnection GetConnection()
@@ -75,7 +75,7 @@ namespace BitWatch.Services
             using var connection = GetConnection();
             return connection.Query<string>("SELECT path FROM paths_to_scan");
         }
-        
+
         public void RemovePathToScan(string path)
         {
             using var connection = GetConnection();
@@ -112,7 +112,7 @@ namespace BitWatch.Services
                     node);
             }
         }
-        
+
         public void AddExcludedNode(int pathId, string relativePath)
         {
             FileLogger.Instance.Debug($"Calling add_and_clean_excluded_node: pathId={pathId}, relativePath='{relativePath}'");
@@ -135,13 +135,13 @@ namespace BitWatch.Services
             // Dapper can execute a single DELETE statement for multiple items efficiently
             connection.Execute("DELETE FROM nodes WHERE id = @Id", nodesToRemove);
         }
-        
+
         public IEnumerable<ExcludedNode> GetExcludedNodes()
         {
             using var connection = GetConnection();
             return connection.Query<ExcludedNode>("SELECT * FROM excluded_nodes");
         }
-        
+
         public void RemoveExcludedNode(int id)
         {
             using var connection = GetConnection();

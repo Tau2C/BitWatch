@@ -23,7 +23,6 @@
       </MenuItem>
       <MenuItem Header="_Actions">
         <MenuItem Header="_Calculate Hash" Command="{Binding CalculateHashCommand}" />
-        <MenuItem Header="_Run Now" Command="{Binding RunNowCommand}"/>
         <MenuItem Header="_Verify All" Command="{Binding VerifyAllCommand}"/>
       </MenuItem>
       <MenuItem Header="_View">
@@ -50,6 +49,9 @@
           <Style Selector="TreeViewItem /template/ ContentPresenter#PART_HeaderPresenter">
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
           </Style>
+          <Style Selector="TextBlock.deleted">
+            <Setter Property="TextDecorations" Value="Strikethrough"/>
+          </Style>
         </TreeView.Styles>
         <TreeView.ContextMenu>
           <ContextMenu>
@@ -71,8 +73,8 @@
                 </ContextMenu>
               </Panel.ContextMenu>
               <Panel>
-                <TextBlock Text="{Binding Name}" IsVisible="{Binding IsDefaultColor}"/>
-                <TextBlock Text="{Binding Name}" Foreground="{Binding DisplayColor}" IsVisible="{Binding !IsDefaultColor}"/>
+                <TextBlock Text="{Binding Name}" IsVisible="{Binding IsDefaultColor}" Classes.deleted="{Binding IsDeleted}"/>
+                <TextBlock Text="{Binding Name}" Foreground="{Binding DisplayColor}" IsVisible="{Binding !IsDefaultColor}" Classes.deleted="{Binding IsDeleted}"/>
               </Panel>
             </Panel>
           </TreeDataTemplate>
@@ -89,8 +91,8 @@
                 </ContextMenu>
               </Grid.ContextMenu>
               <StackPanel Orientation="Horizontal" Grid.Column="0">
-                <TextBlock Text="{Binding Name}" IsVisible="{Binding IsDefaultColor}" />
-                <TextBlock Text="{Binding Name}" Foreground="{Binding DisplayColor}" IsVisible="{Binding !IsDefaultColor}" />
+                <TextBlock Text="{Binding Name}" IsVisible="{Binding IsDefaultColor}" Classes.deleted="{Binding IsDeleted}" />
+                <TextBlock Text="{Binding Name}" Foreground="{Binding DisplayColor}" IsVisible="{Binding !IsDefaultColor}" Classes.deleted="{Binding IsDeleted}" />
               </StackPanel>
             </Grid>
           </TreeDataTemplate>

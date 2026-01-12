@@ -84,6 +84,13 @@ namespace BitWatch.ViewModels
 
         public bool IsDefaultColor => DisplayColor == null;
 
+        private bool _isDeleted;
+        public bool IsDeleted
+        {
+            get => _isDeleted;
+            set => this.RaiseAndSetIfChanged(ref _isDeleted, value);
+        }
+
         public ObservableCollection<FileSystemNodeViewModel> Children { get; } = new ObservableCollection<FileSystemNodeViewModel>();
 
         public FileSystemNodeViewModel(string path)
@@ -122,28 +129,33 @@ namespace BitWatch.ViewModels
         public void LoadChildren()
         {
             Children.Clear();
-            foreach (var dir in Directory.EnumerateDirectories(Path))
+            try
             {
-                try
+                foreach (var dir in Directory.EnumerateDirectories(Path))
                 {
-                    Children.Add(new DirectoryNodeViewModel(dir));
+                    try
+                    {
+                        Children.Add(new DirectoryNodeViewModel(dir));
+                    }
+                    catch (System.UnauthorizedAccessException)
+                    {
+                        // Handle permission issues
+                    }
                 }
-                catch (System.UnauthorizedAccessException)
+                foreach (var file in Directory.EnumerateFiles(Path))
                 {
-                    // Handle permission issues
+                    try
+                    {
+                        Children.Add(new FileNodeViewModel(file));
+                    }
+                    catch (System.UnauthorizedAccessException)
+                    {
+                        // Handle permission issues
+                    }
                 }
             }
-            foreach (var file in Directory.EnumerateFiles(Path))
-            {
-                try
-                {
-                    Children.Add(new FileNodeViewModel(file));
-                }
-                catch (System.UnauthorizedAccessException)
-                {
-                    // Handle permission issues
-                }
-            }
+            catch (DirectoryNotFoundException) { }
+            catch (IOException) { }
         }
     }
     public class FileNodeViewModel : FileSystemNodeViewModel
