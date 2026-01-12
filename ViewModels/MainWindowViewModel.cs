@@ -132,8 +132,23 @@ namespace BitWatch.ViewModels
                     {
                         var pathId = _databaseService.GetPathId(rootPath.Path);
                         var relativePath = node.Path.Substring(rootPath.Path.Length).TrimStart(Path.DirectorySeparatorChar);
-                        _databaseService.AddExcludedNode(pathId, relativePath);
-                        AddLogMessage($"Excluded: {node.Path}");
+                        
+                        if (node.IsExcluded)
+                        {
+                            var excludedNodes = _databaseService.GetExcludedNodes().ToList();
+                            var exNode = excludedNodes.FirstOrDefault(en => en.PathId == pathId && en.RelativePath == relativePath);
+                            if (exNode != null)
+                            {
+                                _databaseService.RemoveExcludedNode(exNode.Id);
+                                AddLogMessage($"Removed from excluded: {node.Path}");
+                            }
+                        }
+                        else
+                        {
+                            _databaseService.AddExcludedNode(pathId, relativePath);
+                            AddLogMessage($"Excluded: {node.Path}");
+                        }
+                        RefreshAllNodesExclusion();
                     }
                 }
             }, (parameter) => (parameter as FileSystemNodeViewModel ?? SelectedNode) != null);

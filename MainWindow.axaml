@@ -43,17 +43,31 @@
     <Grid ColumnDefinitions="3*,7*">
       <TreeView Grid.Column="0" Margin="5" Name="DirectoryTree" ItemsSource="{Binding Directories}"
                 SelectedItem="{Binding SelectedNode}">
+        <TreeView.Styles>
+          <Style Selector="TreeViewItem">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+          </Style>
+          <Style Selector="TreeViewItem /template/ ContentPresenter#PART_HeaderPresenter">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+          </Style>
+        </TreeView.Styles>
+        <TreeView.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="Add New Directory" Click="OnAddDirectoryMenuItemClick"/>
+          </ContextMenu>
+        </TreeView.ContextMenu>
         <TreeView.DataTemplates>
           <TreeDataTemplate DataType="vm:DirectoryNodeViewModel" ItemsSource="{Binding Children}">
-            <Panel Background="Transparent">
+            <Panel Background="Transparent" HorizontalAlignment="Stretch">
               <Panel.ContextMenu>
                 <ContextMenu>
                   <MenuItem Header="Verify" Command="{Binding $parent[TreeView].DataContext.VerifyNodeCommand}" CommandParameter="{Binding}"/>
                   <MenuItem Header="Update Hash" Command="{Binding $parent[TreeView].DataContext.CalculateHashCommand}" CommandParameter="{Binding}"/>
-                  <MenuItem Header="Exclude" Command="{Binding $parent[TreeView].DataContext.ExcludeNodeCommand}" CommandParameter="{Binding}"/>
+                  <MenuItem Header="Exclude" Command="{Binding $parent[TreeView].DataContext.ExcludeNodeCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsNotExcluded}"/>
+                  <MenuItem Header="Remove from excluded" Command="{Binding $parent[TreeView].DataContext.ExcludeNodeCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsExcluded}"/>
                   <MenuItem Header="Remove" Command="{Binding $parent[TreeView].DataContext.RemoveNodeCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsRoot}"/>
                   <Separator IsVisible="{Binding IsRoot}"/>
-                  <MenuItem Header="Add New Directory" Command="{Binding $parent[TreeView].DataContext.AddDirectoryCommand}"/>
+                  <MenuItem Header="Add New Directory" Click="OnAddDirectoryMenuItemClick"/>
                 </ContextMenu>
               </Panel.ContextMenu>
               <TextBlock Text="{Binding Name}" IsVisible="{Binding IsNotExcluded}"/>
@@ -61,19 +75,24 @@
             </Panel>
           </TreeDataTemplate>
           <TreeDataTemplate DataType="vm:FileNodeViewModel">
-            <StackPanel Orientation="Horizontal">
-              <StackPanel.ContextMenu>
+            <Grid Background="Transparent" ColumnDefinitions="Auto,*" HorizontalAlignment="Stretch">
+              <Grid.ContextMenu>
                 <ContextMenu>
                   <MenuItem Header="Verify" Command="{Binding $parent[TreeView].DataContext.VerifyNodeCommand}" CommandParameter="{Binding}"/>
                   <MenuItem Header="Update Hash" Command="{Binding $parent[TreeView].DataContext.CalculateHashCommand}" CommandParameter="{Binding}"/>
-                  <MenuItem Header="Exclude" Command="{Binding $parent[TreeView].DataContext.ExcludeNodeCommand}" CommandParameter="{Binding}"/>
+                  <MenuItem Header="Exclude" Command="{Binding $parent[TreeView].DataContext.ExcludeNodeCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsNotExcluded}"/>
+                  <MenuItem Header="Remove from excluded" Command="{Binding $parent[TreeView].DataContext.ExcludeNodeCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsExcluded}"/>
+                  <Separator/>
+                  <MenuItem Header="Add New Directory" Click="OnAddDirectoryMenuItemClick"/>
                 </ContextMenu>
-              </StackPanel.ContextMenu>
-              <TextBlock Text="{Binding Name}" IsVisible="{Binding IsNotExcluded}" />
-              <TextBlock Text="{Binding Name}" IsVisible="{Binding IsExcluded}" Foreground="{Binding DisplayColor}" />
-              <TextBlock Text="{Binding Hash, StringFormat=' - {0}'}" Margin="5,0,0,0" IsVisible="{Binding IsNotExcluded}" />
-              <TextBlock Text="{Binding Hash, StringFormat=' - {0}'}" Margin="5,0,0,0" IsVisible="{Binding IsExcluded}" Foreground="{Binding DisplayColor}" />
-            </StackPanel>
+              </Grid.ContextMenu>
+              <StackPanel Orientation="Horizontal" Grid.Column="0">
+                <TextBlock Text="{Binding Name}" IsVisible="{Binding IsNotExcluded}" />
+                <TextBlock Text="{Binding Name}" IsVisible="{Binding IsExcluded}" Foreground="{Binding DisplayColor}" />
+                <TextBlock Text="{Binding Hash, StringFormat=' - {0}'}" Margin="5,0,0,0" IsVisible="{Binding IsNotExcluded}" />
+                <TextBlock Text="{Binding Hash, StringFormat=' - {0}'}" Margin="5,0,0,0" IsVisible="{Binding IsExcluded}" Foreground="{Binding DisplayColor}" />
+              </StackPanel>
+            </Grid>
           </TreeDataTemplate>
         </TreeView.DataTemplates>
       </TreeView>
