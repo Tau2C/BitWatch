@@ -275,33 +275,44 @@ namespace BitWatch.ViewModels
                     var childHash = await ProcessNodeAsync(child, pathId, rootPath, verify, excludedNodes, foundNodesDuringTraversal);
                     if (childHash != null)
                     {
-                        childHashes.Add(childHash);
+                        childHashes.Add(child.Name + ":" + childHash);
                     }
                 }
 
                 childHashes.Sort();
-                var concatenatedHashes = string.Join("", childHashes);
+                var concatenatedHashes = string.Join(";", childHashes);
                 var dirHash = CalculateStringHash(concatenatedHashes);
                 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     dirNode.Hash = dirHash;
                     dirNode.HashAlgorithm = "SHA256";
+                    // dirNode.HashAlgorithm = ; // Read from settings SelectedHashAlgorithm
                     if (verify)
                     {
                         var dbNode = _databaseService.GetNodeByRelativePath(pathId, relativePath);
-                        if (dbNode?.Hash != dirHash)
+                        if (dbNode != null)
                         {
-                            dirNode.DisplayColor = Brushes.Red;
+                            if (dbNode.Hash != dirHash)
+                            {
+                                dirNode.DisplayColor = Brushes.Red;
+                                AddLogMessage($"Verification failed for directory: {dirNode.Path}.");
+                            }
+                            else if (!dirNode.IsExcluded)
+                            {
+                                dirNode.DisplayColor = Brushes.Lime;
+                            }
                         }
-                        else if (!dirNode.IsExcluded)
+                        else
                         {
-                            dirNode.DisplayColor = Brushes.Lime;
+                            dirNode.DisplayColor = Brushes.Orange;
+                            AddLogMessage($"Verification Error: New directory detected: {dirNode.Path}");
+                            FileLogger.Instance.Warning($"Verification Error: New directory detected: {dirNode.Path}");
                         }
                     }
                     else if (!dirNode.IsExcluded)
                     {
-                        dirNode.DisplayColor = null;
+                        dirNode.DisplayColor = Brushes.Lime;
                     }
                 });
 
@@ -340,20 +351,29 @@ namespace BitWatch.ViewModels
                         if(verify)
                         {
                             var dbNode = _databaseService.GetNodeByRelativePath(pathId, relativePath);
-                            if (dbNode?.Hash != hashString)
+                            if (dbNode != null)
                             {
-                                AddLogMessage($"Verification failed for {fileNode.Path}");
-                                FileLogger.Instance.Warning($"Verification failed for {fileNode.Path}. Stored hash: {dbNode?.Hash ?? "N/A"}, Calculated hash: {hashString}");
-                                fileNode.DisplayColor = Brushes.Red;
+                                if (dbNode.Hash != hashString)
+                                {
+                                    AddLogMessage($"Verification failed for {fileNode.Path}");
+                                    FileLogger.Instance.Warning($"Verification failed for {fileNode.Path}. Stored hash: {dbNode.Hash}, Calculated hash: {hashString}");
+                                    fileNode.DisplayColor = Brushes.Red;
+                                }
+                                else if (!fileNode.IsExcluded)
+                                {
+                                    fileNode.DisplayColor = Brushes.Lime;
+                                }
                             }
-                            else if (!fileNode.IsExcluded)
+                            else
                             {
-                                fileNode.DisplayColor = Brushes.Lime;
+                                fileNode.DisplayColor = Brushes.Orange;
+                                AddLogMessage($"Verification Error: New file detected: {fileNode.Path}");
+                                FileLogger.Instance.Warning($"Verification Error: New file detected: {fileNode.Path}");
                             }
                         }
                         else if (!fileNode.IsExcluded)
                         {
-                            fileNode.DisplayColor = null;
+                            fileNode.DisplayColor = Brushes.Lime;
                         }
                     });
 
@@ -484,7 +504,7 @@ namespace BitWatch.ViewModels
                 if (_excludedBrush == null) UpdateExcludedBrush();
                 node.DisplayColor = _excludedBrush;
             }
-            else if (node.DisplayColor != Brushes.Red && node.DisplayColor != Brushes.Lime)
+            else if (node.DisplayColor != Brushes.Red && node.DisplayColor != Brushes.Lime && node.DisplayColor != Brushes.Orange)
             {
                 node.DisplayColor = null; // Reset to default (inherit from theme)
             }
