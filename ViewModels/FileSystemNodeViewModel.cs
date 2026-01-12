@@ -75,8 +75,14 @@ namespace BitWatch.ViewModels
         public IBrush? DisplayColor
         {
             get => _displayColor;
-            set => this.RaiseAndSetIfChanged(ref _displayColor, value);
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _displayColor, value);
+                this.RaisePropertyChanged(nameof(IsDefaultColor));
+            }
         }
+
+        public bool IsDefaultColor => DisplayColor == null;
 
         public ObservableCollection<FileSystemNodeViewModel> Children { get; } = new ObservableCollection<FileSystemNodeViewModel>();
 

@@ -287,6 +287,22 @@ namespace BitWatch.ViewModels
                 {
                     dirNode.Hash = dirHash;
                     dirNode.HashAlgorithm = "SHA256";
+                    if (verify)
+                    {
+                        var dbNode = _databaseService.GetNodeByRelativePath(pathId, relativePath);
+                        if (dbNode?.Hash != dirHash)
+                        {
+                            dirNode.DisplayColor = Brushes.Red;
+                        }
+                        else if (!dirNode.IsExcluded)
+                        {
+                            dirNode.DisplayColor = Brushes.Lime;
+                        }
+                    }
+                    else if (!dirNode.IsExcluded)
+                    {
+                        dirNode.DisplayColor = null;
+                    }
                 });
 
                 if (!verify)
@@ -328,7 +344,16 @@ namespace BitWatch.ViewModels
                             {
                                 AddLogMessage($"Verification failed for {fileNode.Path}");
                                 FileLogger.Instance.Warning($"Verification failed for {fileNode.Path}. Stored hash: {dbNode?.Hash ?? "N/A"}, Calculated hash: {hashString}");
+                                fileNode.DisplayColor = Brushes.Red;
                             }
+                            else if (!fileNode.IsExcluded)
+                            {
+                                fileNode.DisplayColor = Brushes.Lime;
+                            }
+                        }
+                        else if (!fileNode.IsExcluded)
+                        {
+                            fileNode.DisplayColor = null;
                         }
                     });
 
@@ -459,7 +484,7 @@ namespace BitWatch.ViewModels
                 if (_excludedBrush == null) UpdateExcludedBrush();
                 node.DisplayColor = _excludedBrush;
             }
-            else
+            else if (node.DisplayColor != Brushes.Red && node.DisplayColor != Brushes.Lime)
             {
                 node.DisplayColor = null; // Reset to default (inherit from theme)
             }
