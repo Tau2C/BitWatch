@@ -175,6 +175,9 @@ namespace BitWatch.ViewModels
             LoadSettings();
             LoadRootDirectories();
             _autoUpdateTimer.Start();
+
+            // Run validation on start
+            _ = ProcessAllRootsAsync(true, false, false);
         }
 
         private async Task ProcessAllRootsAsync(bool verify, bool deleteRemovedNodes, bool refreshOnly)
