@@ -45,7 +45,7 @@ namespace BitWatch.ViewModels
         public void AddLogMessage(string message)
         {
             LogMessages.Add(message);
-            // Optionally, limit the number of log messages to prevent excessive memory usage
+            // Limit the number of log messages to prevent excessive memory usage
             if (LogMessages.Count > 1000)
             {
                 LogMessages.RemoveAt(0);
@@ -85,6 +85,8 @@ namespace BitWatch.ViewModels
         }
 
         private IBrush? _excludedBrush;
+
+        private string _selectedHashAlgorithm = "SHA256";
 
         private readonly DispatcherTimer _autoUpdateTimer;
 
@@ -170,7 +172,7 @@ namespace BitWatch.ViewModels
             });
 
             VerifyAllCommand = new RelayCommand(async (parameter) => await ProcessAllRootsAsync(true, false, false));
-            ClearLogCommand = new RelayCommand((parameter) => LogMessages.Clear()); // Implementation for ClearLogCommand
+            ClearLogCommand = new RelayCommand((parameter) => LogMessages.Clear());
 
             LoadSettings();
             LoadRootDirectories();
@@ -426,13 +428,19 @@ namespace BitWatch.ViewModels
 
                 childHashes.Sort();
                 var concatenatedHashes = string.Join(";", childHashes);
-                var dirHash = CalculateStringHash(concatenatedHashes);
+
+                string dirAlgoToUse = _selectedHashAlgorithm;
+                if (verify && existingNodesInDb.TryGetValue(relativePath, out var dbDirNode) && !string.IsNullOrEmpty(dbDirNode.HashAlgorithm))
+                {
+                    dirAlgoToUse = dbDirNode.HashAlgorithm;
+                }
+
+                var dirHash = CalculateStringHash(concatenatedHashes, dirAlgoToUse);
                 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     dirNode.Hash = dirHash;
-                    dirNode.HashAlgorithm = "SHA256";
-                    // dirNode.HashAlgorithm = ; // Read from settings SelectedHashAlgorithm
+                    dirNode.HashAlgorithm = dirAlgoToUse;
                     if (verify)
                     {
                         if (existingNodesInDb.TryGetValue(relativePath, out var dbNode))
@@ -468,7 +476,7 @@ namespace BitWatch.ViewModels
                         RelativePath = relativePath,
                         Type = "directory",
                         Hash = dirHash,
-                        HashAlgorithm = "SHA256",
+                        HashAlgorithm = dirAlgoToUse,
                         LastChecked = DateTime.UtcNow
                     });
                 }
@@ -484,18 +492,24 @@ namespace BitWatch.ViewModels
 
                 try
                 {
+                    string fileAlgoToUse = _selectedHashAlgorithm;
+                    if (verify && existingNodesInDb.TryGetValue(relativePath, out var dbFileNode) && !string.IsNullOrEmpty(dbFileNode.HashAlgorithm))
+                    {
+                        fileAlgoToUse = dbFileNode.HashAlgorithm;
+                    }
+
                     var hashString = await Task.Run(() =>
                     {
-                        using var sha256 = SHA256.Create();
+                        using var hasher = CreateHashAlgorithm(fileAlgoToUse);
                         using var stream = File.OpenRead(fileNode.Path);
-                        var hash = sha256.ComputeHash(stream);
+                        var hash = hasher.ComputeHash(stream);
                         return System.BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
                     });
 
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         fileNode.Hash = hashString;
-                        fileNode.HashAlgorithm = "SHA256";
+                        fileNode.HashAlgorithm = fileAlgoToUse;
                         if(verify)
                         {
                             if (existingNodesInDb.TryGetValue(relativePath, out var dbNode))
@@ -532,7 +546,7 @@ namespace BitWatch.ViewModels
                             RelativePath = relativePath,
                             Type = "file",
                             Hash = hashString,
-                            HashAlgorithm = "SHA256",
+                            HashAlgorithm = fileAlgoToUse,
                             LastChecked = DateTime.UtcNow
                         });
                     }
@@ -550,11 +564,23 @@ namespace BitWatch.ViewModels
             return null;
         }
 
-        private string CalculateStringHash(string input)
+        private HashAlgorithm CreateHashAlgorithm(string? algorithm = null)
         {
-            using var sha256 = SHA256.Create();
+            var algo = algorithm ?? _selectedHashAlgorithm;
+            return algo switch
+            {
+                "MD5" => MD5.Create(),
+                "SHA1" => SHA1.Create(),
+                "SHA512" => SHA512.Create(),
+                _ => SHA256.Create(),
+            };
+        }
+
+        private string CalculateStringHash(string input, string? algorithm = null)
+        {
+            using var hasher = CreateHashAlgorithm(algorithm);
             var bytes = Encoding.UTF8.GetBytes(input);
-            var hash = sha256.ComputeHash(bytes);
+            var hash = hasher.ComputeHash(bytes);
             return System.BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
         }
 
@@ -587,6 +613,12 @@ namespace BitWatch.ViewModels
             if (int.TryParse(intervalStr, out int interval) && interval > 0)
             {
                 _autoUpdateTimer.Interval = TimeSpan.FromMinutes(interval);
+            }
+
+            var algo = _databaseService.GetSetting("HashAlgorithm");
+            if (!string.IsNullOrEmpty(algo))
+            {
+                _selectedHashAlgorithm = algo;
             }
         }
 

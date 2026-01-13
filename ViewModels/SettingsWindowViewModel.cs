@@ -15,10 +15,10 @@ namespace BitWatch.ViewModels
         public string DatabaseConnectionString { get; } = "Host=localhost;Port=5432;Username=postgres;Password=password;Database=bitwatch";
 
         public ObservableCollection<string> HashAlgorithms { get; } = new ObservableCollection<string> { 
-            // "MD5", 
-            // "SHA1", 
+            "MD5", 
+            "SHA1", 
             "SHA256", 
-            // "SHA512" 
+            "SHA512" 
         };
 
         private string _selectedHashAlgorithm = "SHA256";
